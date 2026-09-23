@@ -1,0 +1,114 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="400dp"
+    android:height="220dp"
+    android:viewportWidth="400"
+    android:viewportHeight="220">
+
+    <!-- Sky / Light Mist Gradient -->
+    <path
+        android:pathData="M0,0 L400,0 L400,220 L0,220 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startY="0"
+                android:endY="220"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#00FFFFFF" />
+                <item android:offset="0.4" android:color="#44B2DFDB" />
+                <item android:offset="1.0" android:color="#66A5D6A7" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Distant Pale Mountains -->
+    <path
+        android:fillColor="#80C8E6C9"
+        android:pathData="M0,105 Q70,70 150,92 Q220,110 300,75 Q360,55 400,85 L400,220 L0,220 Z" />
+
+    <!-- Mid-Ground Rolling Green Fields -->
+    <path
+        android:pathData="M0,125 Q90,95 200,118 Q310,135 400,102 L400,220 L0,220 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startY="95"
+                android:endY="220"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#81C784" />
+                <item android:offset="1.0" android:color="#4CAF50" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Field Terrace Curves (Agri Rows) -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#A5D6A7"
+        android:strokeWidth="1.5"
+        android:pathData="M10,140 Q110,115 220,132 Q320,145 390,120" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#81C784"
+        android:strokeWidth="1.5"
+        android:pathData="M0,158 Q130,132 250,150 Q330,160 400,142" />
+
+    <!-- Distant Farm Trees (Green Clusters) -->
+    <path
+        android:fillColor="#2E7D32"
+        android:pathData="M30,120 A8,8 0 1,1 46,120 A10,10 0 1,1 66,120 A7,7 0 1,1 80,120 L80,128 L30,128 Z" />
+    <path
+        android:fillColor="#388E3C"
+        android:pathData="M330,105 A9,9 0 1,1 348,105 A11,11 0 1,1 370,105 A8,8 0 1,1 386,105 L386,115 L330,115 Z" />
+
+    <!-- Country Farmhouse with Warm Orange/Yellow Roof -->
+    <!-- House Wall -->
+    <path
+        android:fillColor="#FFF8E1"
+        android:pathData="M255,160 L295,160 L295,180 L255,180 Z" />
+    <!-- Roof -->
+    <path
+        android:fillColor="#E65100"
+        android:pathData="M250,160 L275,145 L300,160 Z" />
+    <!-- Door & Window -->
+    <path
+        android:fillColor="#8D6E63"
+        android:pathData="M271,168 L279,168 L279,180 L271,180 Z" />
+    <path
+        android:fillColor="#81D4FA"
+        android:pathData="M259,165 L266,165 L266,172 L259,172 Z" />
+
+    <!-- Foreground Lush Green Farm Hedges (Terrace Base) -->
+    <path
+        android:pathData="M0,172 Q110,148 230,170 Q320,185 400,162 L400,220 L0,220 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startY="148"
+                android:endY="220"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#2E7D32" />
+                <item android:offset="1.0" android:color="#1B5E20" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Left Foreground Crop Leaf Cluster -->
+    <path
+        android:fillColor="#1B5E20"
+        android:pathData="M-15,220 Q-5,160 35,175 Q15,200 0,220 Z" />
+    <path
+        android:fillColor="#2E7D32"
+        android:pathData="M0,220 Q25,170 65,185 Q40,210 15,220 Z" />
+    <path
+        android:fillColor="#43A047"
+        android:pathData="M10,220 Q40,185 85,200 Q55,218 30,220 Z" />
+
+    <!-- Right Foreground Crop Leaf Cluster -->
+    <path
+        android:fillColor="#1B5E20"
+        android:pathData="M415,220 Q405,160 365,175 Q385,200 400,220 Z" />
+    <path
+        android:fillColor="#2E7D32"
+        android:pathData="M400,220 Q375,170 335,185 Q360,210 385,220 Z" />
+    <path
+        android:fillColor="#43A047"
+        android:pathData="M390,220 Q360,185 315,200 Q345,218 370,220 Z" />
+</vector>
