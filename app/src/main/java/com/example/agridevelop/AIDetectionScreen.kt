@@ -5,12 +5,13 @@ import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -24,291 +25,331 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.delay
+import com.google.ai.client.generativeai.GenerativeModel
+import com.google.ai.client.generativeai.type.content
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
-data class PlantDiseaseResult(
-    val cropName: String,
-    val diseaseNameEn: String,
-    val diseaseNameTe: String,
-    val confidence: String,
-    val statusColor: Color,
-    val symptomsEn: String,
-    val symptomsTe: String,
-    val treatmentEn: String,
-    val treatmentTe: String
-)
+// Enter your Gemini API key here
+private const val GEMINI_API_KEY = "AQ.Ab8RN6JgXwYF4oN9g9ckNIJgy5bKhP-jJWRWGTdcU4Mh7BbuBA"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AIDetectionScreen(onBack: () -> Unit) {
+fun AIDetectionScreen(
+    onBack: () -> Unit
+) {
+    val darkForest = Color(0xFF0F3820)
+    val forestGreen = Color(0xFF0F5A2C)
+    val pageBg = Color(0xFFF4F7F4)
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val brandForest = Color(0xFF0F5A2C)
 
-    var imageUri by remember { mutableStateOf<Uri?>(null) }
-    var bitmapImage by remember { mutableStateOf<Bitmap?>(null) }
+    var selectedBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var isAnalyzing by remember { mutableStateOf(false) }
-    var diagnosisResult by remember { mutableStateOf<PlantDiseaseResult?>(null) }
+    var diagnosisResult by remember { mutableStateOf<String?>(null) }
+    var selectedLanguage by remember { mutableStateOf("Telugu") } // "Telugu" or "English"
 
-    // Launcher for Gallery photo picker
+    // Gallery Picker Launcher
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
-            imageUri = it
-            bitmapImage = if (Build.VERSION.SDK_INT < 28) {
+            val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, it))
+            } else {
                 @Suppress("DEPRECATION")
                 MediaStore.Images.Media.getBitmap(context.contentResolver, it)
-            } else {
-                val source = ImageDecoder.createSource(context.contentResolver, it)
-                ImageDecoder.decodeBitmap(source)
             }
+            selectedBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true)
             diagnosisResult = null
         }
     }
 
-    // Launcher for Direct Camera Capture
+    // Camera Launcher
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicturePreview()
-    ) { capturedBitmap: Bitmap? ->
-        capturedBitmap?.let {
-            bitmapImage = it
-            imageUri = null
+    ) { bitmap: Bitmap? ->
+        bitmap?.let {
+            selectedBitmap = it
             diagnosisResult = null
         }
     }
 
-    // Scanning animation line
-    val infiniteTransition = rememberInfiniteTransition(label = "scan")
-    val scanLineOffset by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 240f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "scanLine"
-    )
+    fun analyzeCropImage(bitmap: Bitmap) {
+        if (GEMINI_API_KEY == "YOUR_GEMINI_API_KEY" || GEMINI_API_KEY.isBlank()) {
+            Toast.makeText(context, "Please configure your Gemini API Key first.", Toast.LENGTH_LONG).show()
+            return
+        }
 
-    fun runPlantInference() {
-        if (bitmapImage == null) return
+        isAnalyzing = true
+        diagnosisResult = null
+
         coroutineScope.launch {
-            isAnalyzing = true
-            diagnosisResult = null
+            try {
+                val generativeModel = GenerativeModel(
+                    modelName = "gemini-1.5-flash",
+                    apiKey = GEMINI_API_KEY
+                )
 
-            // Simulating high-precision evaluation on leaf sample
-            delay(1500)
+                val prompt = """
+                    You are an expert plant pathologist and agronomist for Telangana farmers.
+                    Analyze this crop leaf image.
+                    Provide the response strictly in ${if (selectedLanguage == "Telugu") "Telugu (తెలుగు) along with English plant names" else "English"}.
+                    
+                    Format the diagnosis clearly:
+                    1. Crop Name & Condition (పంట & గుర్తించిన తెగులు):
+                    2. Severity Level (తీవ్రత): [Low / Moderate / High]
+                    3. Key Symptoms (ప్రధాన లక్షణాలు):
+                    4. Chemical Solution (రసాయన నివారణ మందులు - డోసేజ్ తో సహా):
+                    5. Organic / Natural Remedy (సేంద్రీయ నివారణ - జీవామృతం/నీమాస్ట్రం మొదలైనవి):
+                    6. Prevention Tips (భవిష్యత్ జాగ్రత్తలు):
+                """.trimIndent()
 
-            // Diagnostic output matching staple Telangana crops
-            diagnosisResult = PlantDiseaseResult(
-                cropName = "Cotton (పత్తి)",
-                diseaseNameEn = "Bacterial Blight / Angular Leaf Spot",
-                diseaseNameTe = "బాక్టీరియల్ ఆకుమచ్చ తెగులు",
-                confidence = "98.7%",
-                statusColor = Color(0xFFE65100),
-                symptomsEn = "Dark angular lesions visible on the leaf surface, water-soaked veins.",
-                symptomsTe = "ఆకుల ఉపరితలంపై ముదురు కోణీయ మచ్చలు, సిరల్లో నీటితో తడిసిన సంకేతాలు.",
-                treatmentEn = "Spray Copper Oxychloride (COC) @ 30g + Streptocycline @ 1-2g in 10L water. Remove infected leaves.",
-                treatmentTe = "10 లీటర్ల నీటిలో 30 గ్రా కాపర్ ఆక్సిక్లోరైడ్ + 1-2 గ్రా స్ట్రెప్టోసైక్లిన్ కలిపి పిచికారీ చేయండి."
-            )
-            isAnalyzing = false
+                val inputContent = content {
+                    image(bitmap)
+                    text(prompt)
+                }
+
+                val response = withContext(Dispatchers.IO) {
+                    generativeModel.generateContent(inputContent)
+                }
+
+                diagnosisResult = response.text ?: "Diagnosis could not be completed. Please ensure leaf is clear and well-lit."
+            } catch (e: Exception) {
+                diagnosisResult = "Error connecting to AI diagnostic server: ${e.localizedMessage ?: "Network error"}"
+            } finally {
+                isAnalyzing = false
+            }
         }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Crop Doctor AI", fontWeight = FontWeight.Bold, color = Color.White) },
+                title = {
+                    Text(
+                        text = "Crop Doctor (క్రాప్ డాక్టర్)",
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        fontSize = 18.sp
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = brandForest)
+                actions = {
+                    TextButton(onClick = {
+                        selectedLanguage = if (selectedLanguage == "Telugu") "English" else "Telugu"
+                    }) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color.White.copy(alpha = 0.2f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.4f))
+                        ) {
+                            Text(
+                                text = selectedLanguage,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = darkForest)
             )
         }
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(pageBg)
                 .padding(padding)
-                .background(Color(0xFFF6FAF6))
                 .verticalScroll(rememberScrollState())
                 .padding(18.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Leaf Preview & Scanner Box
-            Box(
+            // Upload Banner Box
+            Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(260.dp)
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(Color.White)
-                    .border(2.dp, brandForest.copy(alpha = 0.3f), RoundedCornerShape(20.dp)),
-                contentAlignment = Alignment.Center
+                    .height(260.dp),
+                shape = RoundedCornerShape(20.dp),
+                color = Color.White,
+                shadowElevation = 3.dp,
+                border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFDDE7DF))
             ) {
-                if (bitmapImage != null) {
-                    Image(
-                        bitmap = bitmapImage!!.asImageBitmap(),
-                        contentDescription = "Leaf Preview",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-
-                    // Laser Scanning Line animation while computing
-                    if (isAnalyzing) {
-                        Box(
+                if (selectedBitmap != null) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        Image(
+                            bitmap = selectedBitmap!!.asImageBitmap(),
+                            contentDescription = "Uploaded leaf photo",
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .height(3.dp)
-                                .offset(y = scanLineOffset.dp)
-                                .background(
-                                    Brush.horizontalGradient(
-                                        colors = listOf(Color.Transparent, Color(0xFF00E676), Color.Transparent)
-                                    )
-                                )
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(20.dp)),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
                         )
+                        IconButton(
+                            onClick = {
+                                selectedBitmap = null
+                                diagnosisResult = null
+                            },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(10.dp)
+                                .size(32.dp)
+                                .background(Color.Black.copy(alpha = 0.65f), CircleShape)
+                        ) {
+                            Icon(Icons.Default.Close, contentDescription = "Remove photo", tint = Color.White, modifier = Modifier.size(18.dp))
+                        }
                     }
                 } else {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(
-                            modifier = Modifier
-                                .size(64.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFE8F5E9)),
-                            contentAlignment = Alignment.Center
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(20.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(70.dp),
+                            shape = CircleShape,
+                            color = forestGreen.copy(alpha = 0.1f)
                         ) {
-                            Icon(Icons.Default.CameraAlt, contentDescription = null, tint = brandForest, modifier = Modifier.size(32.dp))
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.CameraAlt,
+                                    contentDescription = null,
+                                    tint = forestGreen,
+                                    modifier = Modifier.size(36.dp)
+                                )
+                            }
                         }
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text("No Leaf Selected", fontWeight = FontWeight.Bold, color = Color(0xFF1E293B))
-                        Text("Take a photo or pick from gallery", fontSize = 12.sp, color = Color.Gray)
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Text(
+                            text = "Take a photo or choose from gallery",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1E293B)
+                        )
+                        Text(
+                            text = "ఆకు లేదా పంట భాగం స్పష్టంగా కనిపించేలా ఫోటో తీయండి",
+                            fontSize = 12.sp,
+                            color = Color(0xFF64748B)
+                        )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Action Buttons (Camera & Gallery)
+            // Action Buttons: Camera & Gallery
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 OutlinedButton(
                     onClick = { cameraLauncher.launch(null) },
-                    modifier = Modifier.weight(1f).height(48.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = brandForest)
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.2.dp, forestGreen)
                 ) {
-                    Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = forestGreen, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Take Photo", fontWeight = FontWeight.Bold)
+                    Text("Camera", color = forestGreen, fontWeight = FontWeight.Bold)
                 }
 
                 OutlinedButton(
                     onClick = { galleryLauncher.launch("image/*") },
-                    modifier = Modifier.weight(1f).height(48.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = brandForest)
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.2.dp, forestGreen)
                 ) {
-                    Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.PhotoLibrary, contentDescription = null, tint = forestGreen, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Gallery", fontWeight = FontWeight.Bold)
+                    Text("Gallery", color = forestGreen, fontWeight = FontWeight.Bold)
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Analyze Button
+            // Diagnose Button
             Button(
-                onClick = { runPlantInference() },
-                enabled = bitmapImage != null && !isAnalyzing,
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(26.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = brandForest)
+                onClick = { selectedBitmap?.let { analyzeCropImage(it) } },
+                enabled = selectedBitmap != null && !isAnalyzing,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .shadow(4.dp, RoundedCornerShape(14.dp)),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = forestGreen)
             ) {
                 if (isAnalyzing) {
-                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                     Spacer(modifier = Modifier.width(10.dp))
-                    Text("Analyzing Plant Tissue...", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("Analyzing Disease with AI...", fontWeight = FontWeight.Bold)
                 } else {
-                    Icon(Icons.Default.Search, contentDescription = null, tint = Color.White)
+                    Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Diagnose Leaf Disease", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                    Text("Analyze Leaf Disease (తెగులు విశ్లేషణ)", fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Diagnostic Report Card
-            diagnosisResult?.let { result ->
+            // AI Result Card
+            diagnosisResult?.let { resultText ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(18.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
                     elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
                 ) {
                     Column(modifier = Modifier.padding(18.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(result.cropName, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color(0xFF1E293B))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Surface(
-                                color = Color(0xFFE8F5E9),
-                                shape = RoundedCornerShape(12.dp)
+                                modifier = Modifier.size(34.dp),
+                                shape = CircleShape,
+                                color = forestGreen.copy(alpha = 0.12f)
                             ) {
-                                Text(
-                                    text = "Confidence: ${result.confidence}",
-                                    color = Color(0xFF2E7D32),
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.MedicalServices, contentDescription = null, tint = forestGreen, modifier = Modifier.size(20.dp))
+                                }
                             }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "Diagnostic Report (నివేదిక)",
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1E293B)
+                            )
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
+                        HorizontalDivider(color = Color(0xFFE2E8F0))
+                        Spacer(modifier = Modifier.height(12.dp))
 
                         Text(
-                            text = result.diseaseNameEn,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
-                            color = result.statusColor
-                        )
-                        Text(
-                            text = result.diseaseNameTe,
-                            fontWeight = FontWeight.SemiBold,
+                            text = resultText,
                             fontSize = 14.sp,
-                            color = brandForest
+                            lineHeight = 22.sp,
+                            color = Color(0xFF334155)
                         )
-
-                        Spacer(modifier = Modifier.height(14.dp))
-                        HorizontalDivider(color = Color(0xFFF1F5F9))
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        Text("Symptoms (లక్షణాలు):", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF1E293B))
-                        Spacer(modifier = Modifier.height(3.dp))
-                        Text(result.symptomsEn, fontSize = 12.sp, color = Color(0xFF475569))
-                        Text(result.symptomsTe, fontSize = 12.sp, color = Color(0xFF475569))
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        Text("Treatment & Remedies (నివారణ చర్యలు):", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF1E293B))
-                        Spacer(modifier = Modifier.height(3.dp))
-                        Text(result.treatmentEn, fontSize = 12.sp, color = Color(0xFF15803D), fontWeight = FontWeight.Medium)
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(result.treatmentTe, fontSize = 12.sp, color = Color(0xFF15803D), fontWeight = FontWeight.Medium)
                     }
                 }
             }

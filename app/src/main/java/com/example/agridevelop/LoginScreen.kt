@@ -4,13 +4,12 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -23,12 +22,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.agridevelop.R
 
 @Composable
 fun LoginScreen(
@@ -36,14 +37,20 @@ fun LoginScreen(
     onLoginSuccess: (name: String, mobile: String) -> Unit
 ) {
     val forestGreen = Color(0xFF0F5A2C)
-    val leafGreen = Color(0xFF2E7D32)
     val fieldBg = Color(0xFFF9FBF9)
     val fieldBorder = Color(0xFFDDE7DF)
 
-    var mobile by remember { mutableStateOf("") }
+    var mobileNumber by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    // Big, Bold Text Styles for clear readability
+    val largeInputStyle = TextStyle(
+        fontSize = 18.sp,
+        fontWeight = FontWeight.SemiBold,
+        color = Color(0xFF1E293B)
+    )
 
     Box(
         modifier = Modifier
@@ -57,41 +64,59 @@ fun LoginScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 22.dp)
-                .padding(bottom = 145.dp),
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 95.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(44.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // --- Brand Logo & Header ---
-            Image(
-                painter = painterResource(id = R.drawable.agri_logo),
-                contentDescription = "AgriDevelop Logo",
-                modifier = Modifier
-                    .size(125.dp)
-                    .padding(bottom = 6.dp),
-                contentScale = ContentScale.Fit
-            )
-
-            Text(
-                text = "AgriDevelop",
-                fontSize = 28.sp,
-                fontWeight = FontWeight.ExtraBold,
+            // --- Green Banner Header for Logo & Title ---
+            Surface(
+                shape = RoundedCornerShape(26.dp),
                 color = forestGreen,
-                letterSpacing = 0.5.sp
-            )
-            Spacer(modifier = Modifier.height(3.dp))
-            Text(
-                text = "Better Farming • Brighter Future",
-                fontSize = 13.sp,
-                color = leafGreen,
-                fontWeight = FontWeight.Medium
-            )
+                shadowElevation = 8.dp,
+                modifier = Modifier.fillMaxWidth(0.94f)
+            ) {
+                Column(
+                    modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White,
+                        modifier = Modifier.size(64.dp)
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.agri_logo),
+                            contentDescription = "AgriDevelop Logo",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(6.dp),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
 
-            Spacer(modifier = Modifier.height(26.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
-            // --- Modern Card Container ---
+                    Text(
+                        text = "AgriDevelop",
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.White,
+                        letterSpacing = 0.5.sp
+                    )
+                    Text(
+                        text = "Better Farming • Brighter Future",
+                        fontSize = 14.sp,
+                        color = Color(0xFFC8E6C9),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // --- Main Card Container ---
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -105,55 +130,91 @@ fun LoginScreen(
                 color = Color.White
             ) {
                 Column(
-                    modifier = Modifier.padding(horizontal = 22.dp, vertical = 24.dp),
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "Welcome Back",
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
+                        text = "Login",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Black,
                         color = Color(0xFF1E293B)
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Login to access your farm dashboard",
-                        fontSize = 12.sp,
+                        text = "Enter your credentials to continue",
+                        fontSize = 14.sp,
                         color = Color(0xFF64748B)
                     )
 
-                    Spacer(modifier = Modifier.height(22.dp))
+                    Spacer(modifier = Modifier.height(18.dp))
 
-                    // Phone Input
-                    OutlinedTextField(
-                        value = mobile,
-                        onValueChange = { if (it.length <= 10 && it.all { ch -> ch.isDigit() }) mobile = it },
-                        label = { Text("Phone Number", fontSize = 13.sp) },
-                        placeholder = { Text("10 digit mobile number", color = Color(0xFFA0AEC0), fontSize = 13.sp) },
-                        leadingIcon = {
-                            Icon(Icons.Default.Phone, contentDescription = null, tint = forestGreen, modifier = Modifier.size(20.dp))
-                        },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = fieldBg,
-                            unfocusedContainerColor = fieldBg,
-                            focusedBorderColor = forestGreen,
-                            unfocusedBorderColor = fieldBorder
-                        ),
+                    // Phone Row with Large Prefix
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp)
-                    )
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            modifier = Modifier
+                                .height(62.dp)
+                                .width(98.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            color = fieldBg,
+                            border = androidx.compose.foundation.BorderStroke(1.2.dp, fieldBorder)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceEvenly
+                            ) {
+                                Text(text = "🇮🇳", fontSize = 20.sp)
+                                Text(text = "+91", fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF1E293B))
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color(0xFF718096), modifier = Modifier.size(20.dp))
+                            }
+                        }
+
+                        OutlinedTextField(
+                            value = mobileNumber,
+                            onValueChange = { input ->
+                                if (input.length <= 10 && input.all { it.isDigit() }) {
+                                    mobileNumber = input
+                                    errorMessage = null
+                                }
+                            },
+                            textStyle = largeInputStyle,
+                            label = { Text("Mobile Number", fontSize = 15.sp, fontWeight = FontWeight.Medium) },
+                            placeholder = { Text("10 digit number", color = Color(0xFFA0AEC0), fontSize = 16.sp) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = fieldBg,
+                                unfocusedContainerColor = fieldBg,
+                                focusedBorderColor = forestGreen,
+                                unfocusedBorderColor = fieldBorder
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(62.dp),
+                            shape = RoundedCornerShape(14.dp)
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(14.dp))
 
                     // Password Input
                     OutlinedTextField(
                         value = password,
-                        onValueChange = { password = it },
-                        label = { Text("Password", fontSize = 13.sp) },
-                        placeholder = { Text("Enter your password", color = Color(0xFFA0AEC0), fontSize = 13.sp) },
+                        onValueChange = {
+                            password = it
+                            errorMessage = null
+                        },
+                        textStyle = largeInputStyle,
+                        label = { Text("Password", fontSize = 15.sp, fontWeight = FontWeight.Medium) },
+                        placeholder = { Text("At least 4 characters", color = Color(0xFFA0AEC0), fontSize = 16.sp) },
                         leadingIcon = {
-                            Icon(Icons.Default.Lock, contentDescription = null, tint = forestGreen, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.Lock, contentDescription = null, tint = forestGreen, modifier = Modifier.size(22.dp))
                         },
                         trailingIcon = {
                             IconButton(onClick = { passwordVisible = !passwordVisible }) {
@@ -161,7 +222,7 @@ fun LoginScreen(
                                     imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
                                     contentDescription = null,
                                     tint = Color(0xFF718096),
-                                    modifier = Modifier.size(20.dp)
+                                    modifier = Modifier.size(22.dp)
                                 )
                             }
                         },
@@ -174,42 +235,49 @@ fun LoginScreen(
                             focusedBorderColor = forestGreen,
                             unfocusedBorderColor = fieldBorder
                         ),
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(62.dp),
+                        shape = RoundedCornerShape(14.dp)
                     )
 
                     errorMessage?.let {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text(text = it, color = Color(0xFFDC2626), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(text = it, color = Color(0xFFDC2626), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
-                    // Gradient Submit Button
+                    // Login Button
                     Button(
                         onClick = {
-                            if (mobile.isBlank() || password.isBlank()) {
-                                errorMessage = "Please enter both mobile and password."
+                            errorMessage = null
+                            if (mobileNumber.length != 10) {
+                                errorMessage = "Please enter a valid 10-digit mobile number."
                                 return@Button
                             }
-                            val user = AuthRepository.authenticate(mobile.trim(), password.trim())
-                            if (user != null) {
-                                onLoginSuccess(user.fullName, user.mobile)
+                            if (password.length < 4) {
+                                errorMessage = "Password must be at least 4 characters."
+                                return@Button
+                            }
+                            val farmer = AuthRepository.authenticate(mobileNumber, password)
+                            if (farmer != null) {
+                                onLoginSuccess(farmer.fullName, farmer.mobile)
                             } else {
                                 errorMessage = "Invalid mobile number or password."
                             }
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(52.dp)
-                            .shadow(6.dp, RoundedCornerShape(16.dp), spotColor = forestGreen),
-                        shape = RoundedCornerShape(16.dp),
+                            .height(54.dp)
+                            .shadow(6.dp, RoundedCornerShape(14.dp), spotColor = forestGreen),
+                        shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = forestGreen)
                     ) {
-                        Text("Login", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("Login", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     }
 
-                    Spacer(modifier = Modifier.height(18.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     Row(
                         modifier = Modifier
@@ -218,8 +286,8 @@ fun LoginScreen(
                             .padding(horizontal = 8.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Don't have an account? ", fontSize = 13.sp, color = Color(0xFF64748B))
-                        Text("Sign Up", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = forestGreen)
+                        Text("Don't have an account? ", fontSize = 15.sp, color = Color(0xFF64748B))
+                        Text("Sign Up", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = forestGreen)
                     }
                 }
             }
@@ -231,7 +299,7 @@ fun LoginScreen(
             contentDescription = "Farm Field Scenery",
             modifier = Modifier
                 .fillMaxWidth()
-                .height(125.dp)
+                .height(105.dp)
                 .align(Alignment.BottomCenter),
             contentScale = ContentScale.Crop
         )

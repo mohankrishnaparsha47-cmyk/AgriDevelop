@@ -2,20 +2,18 @@ package com.example.agridevelop
 
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
-import androidx.compose.material.icons.filled.AccountBalance
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,94 +24,104 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.browser.customtabs.CustomTabsIntent
 
 data class AgriScheme(
-    val name: String,
-    val authority: String,
-    val aidAmount: String,
-    val overview: String,
-    val eligibility: List<String>,
+    val id: String,
+    val titleEn: String,
+    val titleTe: String,
+    val category: String,
+    val benefitAmount: String,
+    val eligibility: String,
     val documentsNeeded: List<String>,
-    val howToApply: String,
-    val officialUrl: String,
-    val badgeColor: Color
+    val portalUrl: String
 )
+
+object SchemesRepository {
+    val schemesList = listOf(
+        AgriScheme(
+            id = "rythu_bharosa",
+            titleEn = "Rythu Bharosa / Investment Support",
+            titleTe = "రైతు భరోసా పథకం",
+            category = "Financial Support",
+            benefitAmount = "₹15,000 / Acre / Year",
+            eligibility = "All pattadar farmers and verified tenant farmers cultivating land in Telangana.",
+            documentsNeeded = listOf("Pattadar Passbook / Dharani Record", "Aadhaar Card", "Active Bank Account linked with NPCI"),
+            portalUrl = "https://dharani.telangana.gov.in"
+        ),
+        AgriScheme(
+            id = "pm_kisan",
+            titleEn = "PM-Kisan Samman Nidhi",
+            titleTe = "పీఎం కిసాన్ సమ్మాన్ నిధి",
+            category = "Financial Support",
+            benefitAmount = "₹6,000 / Year (3 Installments)",
+            eligibility = "Small and marginal farmer families holding cultivable land in their name.",
+            documentsNeeded = listOf("Aadhaar Card with e-KYC", "Land Revenue Records (ROR)", "Bank Account (DBT Enabled)"),
+            portalUrl = "https://pmkisan.gov.in"
+        ),
+        AgriScheme(
+            id = "drip_subsidy",
+            titleEn = "Telangana Micro Irrigation Project (TSMIP)",
+            titleTe = "సూక్ష్మ సేద్యం రాయితీ (డ్రిప్ & స్ప్రింక్లర్)",
+            category = "Subsidy & Equipment",
+            benefitAmount = "Up to 90% Subsidy for SC/ST, 80% for BC",
+            eligibility = "Farmers possessing minimum 0.5 acre with functional borewell / water source.",
+            documentsNeeded = listOf("Borewell Water & Electricity Certificate", "Land Records / Dharani 1B", "Soil Test Certificate"),
+            portalUrl = "https://horticulture.telangana.gov.in"
+        ),
+        AgriScheme(
+            id = "pmfby",
+            titleEn = "Pradhan Mantri Fasal Bima Yojana (Crop Insurance)",
+            titleTe = "ప్రధాన మంత్రి ఫసల్ బీమా యోజన",
+            category = "Insurance",
+            benefitAmount = "Full Sum Insured for Drought/Pest/Flood Damage",
+            eligibility = "All farmers growing notified crops (Cotton, Paddy, Red Gram, Chilli) in notified areas.",
+            documentsNeeded = listOf("Sowing Certificate issued by VRO/AEO", "Pattadar Passbook", "Aadhaar Card"),
+            portalUrl = "https://pmfby.gov.in"
+        ),
+        AgriScheme(
+            id = "farm_mechanization",
+            titleEn = "Farm Mechanization Scheme (Tractor & Implements)",
+            titleTe = "వ్యవసాయ యాంత్రీకరణ పథకం",
+            category = "Subsidy & Equipment",
+            benefitAmount = "50% Subsidy on Rotavators, Harvesters & Sprayers",
+            eligibility = "Individual farmers or Farmer Producer Organizations (FPOs) registered in Telangana.",
+            documentsNeeded = listOf("Aadhaar Card", "Land Title Passbook", "Quotation from Authorized Dealer"),
+            portalUrl = "https://agri.telangana.gov.in"
+        )
+    )
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SchemesScreen(onBack: () -> Unit) {
+fun SchemesScreen(
+    onBack: () -> Unit
+) {
     val darkForest = Color(0xFF0F3820)
+    val forestGreen = Color(0xFF0F5A2C)
     val pageBg = Color(0xFFF4F7F4)
+    val context = LocalContext.current
 
-    val schemesList = remember {
-        listOf(
-            AgriScheme(
-                name = "Rythu Bharosa (Investment Support)",
-                authority = "Government of Telangana",
-                aidAmount = "₹12,000 - ₹15,000 / Acre / Year",
-                overview = "Flagship seasonal investment assistance providing direct financial support for seeds, fertilizers, and field preparation for Kharif and Rabi cycles.",
-                eligibility = listOf(
-                    "Permanent resident cultivators of Telangana",
-                    "Pattadar Passbook holders registered on Bhu Bharati / Dharani",
-                    "Aadhaar-linked active bank account (DBT mandatory)"
-                ),
-                documentsNeeded = listOf("Pattadar Passbook", "Aadhaar Card", "Active Bank Passbook"),
-                howToApply = "Verify account and land records on the official Telangana Government Rythu Bharosa / Agriculture portal.",
-                officialUrl = "https://rythubharosa.telangana.gov.in/",
-                badgeColor = Color(0xFF2E7D32)
-            ),
-            AgriScheme(
-                name = "Rythu Bima (Farmer Life Insurance)",
-                authority = "Government of Telangana & LIC",
-                aidAmount = "₹5,00,000 Group Insurance Cover",
-                overview = "100% government-subsidized life insurance providing financial relief to the nominated family members within 10 days of a farmer's untimely demise.",
-                eligibility = listOf(
-                    "Farmer age must be between 18 and 59 years",
-                    "Must own land registered in Dharani/Pattadar revenue records",
-                    "Nominee declaration form submitted to Agriculture Extension Officer"
-                ),
-                documentsNeeded = listOf("Pattadar Passbook", "Aadhaar Card of Farmer & Nominee", "Bank Account Details"),
-                howToApply = "Managed directly via Agriculture Extension Officers. View claim forms and guidelines on the department portal.",
-                officialUrl = "http://rythubima.telangana.gov.in/",
-                badgeColor = Color(0xFF0288D1)
-            ),
-            AgriScheme(
-                name = "PM-Kisan Samman Nidhi",
-                authority = "Central Government (Govt of India)",
-                aidAmount = "₹6,000 / Year (3 x ₹2,000 Installments)",
-                overview = "Direct income support credited in three equal quarterly installments into farmer bank accounts to assist with operational farming input costs.",
-                eligibility = listOf(
-                    "All landholding farmer families across India",
-                    "Mandatory Aadhaar e-KYC on PM-Kisan portal",
-                    "Institutional landholders and income tax payees excluded"
-                ),
-                documentsNeeded = listOf("Land Record (Pahani/1B)", "Aadhaar Card", "NPCI-Linked Bank Account"),
-                howToApply = "Check beneficiary status, perform e-KYC, or apply directly on the PM-Kisan portal.",
-                officialUrl = "https://pmkisan.gov.in/",
-                badgeColor = Color(0xFFE65100)
-            ),
-            AgriScheme(
-                name = "Farm Mechanization & Micro-Irrigation (Drip)",
-                authority = "Telangana State Micro Irrigation Project (TSMIP)",
-                aidAmount = "Up to 50% - 80% Subsidy",
-                overview = "Assistance for micro-irrigation (Drip/Sprinkler systems), power tillers, rotavators, and sprayers to maximize yield efficiency.",
-                eligibility = listOf(
-                    "Small and marginal farmers receive higher subsidy tier (up to 80%)",
-                    "Must own operational borewell or verified irrigation source",
-                    "Prior benefit receipt limit of 3 to 5 years apply per machine"
-                ),
-                documentsNeeded = listOf("Pattadar Passbook", "Caste Certificate (if SC/ST/BC)", "Borewell Water Availability Certificate"),
-                howToApply = "Submit application for subsidy verification on the Telangana Micro Irrigation portal.",
-                officialUrl = "http://horticulturedept.telangana.gov.in/",
-                badgeColor = Color(0xFFC2185B)
-            )
-        )
+    var selectedCategory by remember { mutableStateOf("All") }
+    val categories = listOf("All", "Financial Support", "Subsidy & Equipment", "Insurance")
+
+    val filteredSchemes = if (selectedCategory == "All") {
+        SchemesRepository.schemesList
+    } else {
+        SchemesRepository.schemesList.filter { it.category.equals(selectedCategory, ignoreCase = true) }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Government Schemes", fontWeight = FontWeight.Bold, color = Color.White) },
+                title = {
+                    Text(
+                        text = "Government Schemes (రైతు పథకాలు)",
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        fontSize = 18.sp
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
@@ -123,124 +131,162 @@ fun SchemesScreen(onBack: () -> Unit) {
             )
         }
     ) { padding ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
                 .background(pageBg)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(padding)
         ) {
-            items(schemesList) { scheme ->
-                SchemeExpandableCard(scheme)
-            }
-        }
-    }
-}
-
-@Composable
-fun SchemeExpandableCard(scheme: AgriScheme) {
-    val context = LocalContext.current
-    var expanded by remember { mutableStateOf(false) }
-
-    fun openSchemePortal() {
-        try {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(scheme.officialUrl))
-            context.startActivity(intent)
-        } catch (_: Exception) {
-            // Safeguard against missing browser applications
-        }
-    }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { expanded = !expanded },
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+            // Category Filter Pills
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(scheme.badgeColor.copy(alpha = 0.14f)),
-                        contentAlignment = Alignment.Center
+                items(categories) { cat ->
+                    val isSelected = selectedCategory == cat
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = if (isSelected) darkForest else Color.White,
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (isSelected) darkForest else Color(0xFFDDE7DF)
+                        ),
+                        modifier = Modifier.clip(RoundedCornerShape(14.dp))
                     ) {
-                        Icon(Icons.Default.AccountBalance, contentDescription = null, tint = scheme.badgeColor)
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(scheme.name, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF1E293B))
-                        Text(scheme.authority, fontSize = 12.sp, color = Color.Gray)
+                        Text(
+                            text = cat,
+                            fontSize = 13.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            color = if (isSelected) Color.White else Color(0xFF475569),
+                            modifier = Modifier
+                                .clickable { selectedCategory = cat }
+                                .padding(horizontal = 14.dp, vertical = 8.dp)
+                        )
                     }
                 }
-                Icon(
-                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    contentDescription = null,
-                    tint = Color.Gray
-                )
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Surface(
-                color = scheme.badgeColor.copy(alpha = 0.1f),
-                shape = RoundedCornerShape(10.dp)
+            // Schemes Cards List
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                contentPadding = PaddingValues(bottom = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Text(
-                    text = scheme.aidAmount,
-                    color = scheme.badgeColor,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                )
-            }
+                items(filteredSchemes) { scheme ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            // Header Row
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = scheme.titleEn,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF1E293B)
+                                    )
+                                    Text(
+                                        text = scheme.titleTe,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = forestGreen
+                                    )
+                                }
 
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(scheme.overview, fontSize = 13.sp, color = Color(0xFF475569), lineHeight = 18.sp)
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = Color(0xFFDCFCE7)
+                                ) {
+                                    Text(
+                                        text = scheme.benefitAmount,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Color(0xFF15803D),
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
 
-            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
+                            HorizontalDivider(color = Color(0xFFF1F5F9))
+                            Spacer(modifier = Modifier.height(10.dp))
 
-            // Direct Redirect Button on the Card
-            Button(
-                onClick = { openSchemePortal() },
-                modifier = Modifier.fillMaxWidth().height(44.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = scheme.badgeColor)
-            ) {
-                Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Open Official Scheme Portal", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            }
+                            // Eligibility
+                            Text(
+                                text = "Eligibility / అర్హత:",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF475569)
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = scheme.eligibility,
+                                fontSize = 12.sp,
+                                color = Color(0xFF1E293B),
+                                lineHeight = 16.sp
+                            )
 
-            // Expandable details (Requirements & Documents)
-            AnimatedVisibility(visible = expanded) {
-                Column(modifier = Modifier.padding(top = 14.dp)) {
-                    HorizontalDivider(color = Color(0xFFE2E8F0))
-                    Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
 
-                    Text("Eligibility Criteria:", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF1E293B))
-                    scheme.eligibility.forEach { item ->
-                        Text("• $item", fontSize = 12.sp, color = Color.DarkGray, modifier = Modifier.padding(vertical = 2.dp))
+                            // Required Documents Checklist
+                            Text(
+                                text = "Required Documents (కావలసిన ధ్రువీకరణ పత్రాలు):",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF475569)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            scheme.documentsNeeded.forEach { doc ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(vertical = 1.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = Color(0xFF16A34A),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(text = doc, fontSize = 12.sp, color = Color(0xFF334155))
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            // Official Portal Button
+                            Button(
+                                onClick = {
+                                    val customTabsIntent = CustomTabsIntent.Builder()
+                                        .setShowTitle(true)
+                                        .build()
+                                    customTabsIntent.launchUrl(context, Uri.parse(scheme.portalUrl))
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(44.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = forestGreen)
+                            ) {
+                                Text("Apply on Official Portal", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
+                            }
+                        }
                     }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Required Documents:", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF1E293B))
-                    scheme.documentsNeeded.forEach { doc ->
-                        Text("• $doc", fontSize = 12.sp, color = Color.DarkGray, modifier = Modifier.padding(vertical = 2.dp))
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("How to Apply:", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = scheme.badgeColor)
-                    Text(scheme.howToApply, fontSize = 12.sp, color = Color.DarkGray, lineHeight = 16.sp)
                 }
             }
         }

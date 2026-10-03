@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "107271307254",
+    "project_id": "agridevelop-7db55",
+    "storage_bucket": "agridevelop-7db55.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:107271307254:android:26974b30ce4d0b47b591d7",
+        "android_client_info": {
+          "package_name": "com.example.agridevelop"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDoxXFaUWg0Qq0MJEWDdg75neq9hiV-6xM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -22,6 +22,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -29,23 +30,45 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 
 enum class AppLanguage {
     ENGLISH, TELUGU
 }
+
+data class ChatMessage(
+    val sender: String,
+    val text: String
+)
 
 object AppStrings {
     fun appTitle(lang: AppLanguage) = if (lang == AppLanguage.TELUGU) "అగ్రి డెవలప్" else "AgriDevelop"
     fun appSubtitle(lang: AppLanguage) = if (lang == AppLanguage.TELUGU) "మెరుగైన వ్యవసాయం • ఉజ్వల భవిష్యత్తు" else "Better Farming • Brighter Future"
     fun greeting(lang: AppLanguage, name: String) = if (lang == AppLanguage.TELUGU) "నమస్కారం, $name" else "Namaste, $name"
     fun servicesHeader(lang: AppLanguage) = if (lang == AppLanguage.TELUGU) "వ్యవసాయ సేవలు" else "Agricultural Services"
-    fun toolsCount(lang: AppLanguage) = if (lang == AppLanguage.TELUGU) "6 సేవలు" else "6 Tools"
+    fun toolsCount(lang: AppLanguage) = if (lang == AppLanguage.TELUGU) "7 సేవలు" else "7 Tools"
     fun homeTab(lang: AppLanguage) = if (lang == AppLanguage.TELUGU) "హోమ్" else "Home"
     fun profileTab(lang: AppLanguage) = if (lang == AppLanguage.TELUGU) "ప్రొఫైల్" else "Profile"
-    fun region(lang: AppLanguage) = if (lang == AppLanguage.TELUGU) "తెలంగాణ, భారతదేశం" else "Telangana, India"
+    fun region(lang: AppLanguage, loc: String = "Nalgonda, Telangana") =
+        if (lang == AppLanguage.TELUGU) {
+            when {
+                loc.contains("Nalgonda", ignoreCase = true) -> "నల్గొండ, తెలంగాణ"
+                loc.contains("Suryapet", ignoreCase = true) -> "సూర్యాపేట, తెలంగాణ"
+                loc.contains("Hyderabad", ignoreCase = true) -> "హైదరాబాద్, తెలంగాణ"
+                loc.contains("Warangal", ignoreCase = true) -> "వరంగల్, తెలంగాణ"
+                loc.contains("Khammam", ignoreCase = true) -> "ఖమ్మం, తెలంగాణ"
+                loc.contains("Karimnagar", ignoreCase = true) -> "కరీంనగర్, తెలంగాణ"
+                loc.contains("Nizamabad", ignoreCase = true) -> "నిజామాబాద్, తెలంగాణ"
+                loc.contains("Mahabubnagar", ignoreCase = true) -> "మహబూబ్‌నగర్, తెలంగాణ"
+                else -> "$loc, భారతదేశం"
+            }
+        } else {
+            "$loc, India"
+        }
     fun farmerCategory(lang: AppLanguage) = if (lang == AppLanguage.TELUGU) "చిన్న & సన్నకారు రైతు" else "Small & Marginal Farmer"
     fun logout(lang: AppLanguage) = if (lang == AppLanguage.TELUGU) "లాగౌట్ అవ్వండి" else "Logout Account"
 }
@@ -54,13 +77,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 1. Initialize persistent SQLite database
         AuthRepository.init(this)
+        val defaultLocation = "Nalgonda, Telangana"
 
-        // 2. Check if a farmer is already logged in
         val activeUser = AuthRepository.getSavedSession()
         val startDestination = if (activeUser != null) {
-            "dashboard/${activeUser.fullName}/${activeUser.mobile}"
+            "dashboard/${activeUser.fullName}/${activeUser.mobile}/4.5/$defaultLocation"
         } else {
             "login"
         }
@@ -72,42 +94,84 @@ class MainActivity : ComponentActivity() {
 
                 NavHost(
                     navController = navController,
-                    startDestination = "login"
+                    startDestination = "splash"
                 ) {
-                    // ... rest of your composables stay exactly as they are ...
-                    // Login Route
+                    composable(route = "splash") {
+                        SplashScreen(
+                            onSplashFinished = {
+                                navController.navigate(startDestination) {
+                                    popUpTo("splash") { inclusive = true }
+                                }
+                            }
+                        )
+                    }
+
                     composable(route = "login") {
                         LoginScreen(
                             onNavigateToSignUp = { navController.navigate("signup") },
                             onLoginSuccess = { name, mobile ->
-                                navController.navigate("dashboard/$name/$mobile") {
+                                navController.navigate("dashboard/$name/$mobile/4.5/$defaultLocation") {
                                     popUpTo("login") { inclusive = true }
                                 }
                             }
                         )
                     }
 
-                    // Sign Up Route
                     composable(route = "signup") {
                         RegisterScreen(
                             onNavigateToLogin = { navController.popBackStack() },
-                            onRegisterSuccess = { name, mobile ->
-                                navController.navigate("dashboard/$name/$mobile") {
+                            onNavigateToOtp = { name, mobile, pass, land, loc ->
+                                navController.navigate("otp_screen/$mobile?name=$name&pass=$pass&land=$land&loc=$loc")
+                            }
+                        )
+                    }
+
+                    composable(
+                        route = "otp_screen/{phoneNumber}?name={name}&pass={pass}&land={land}&loc={loc}",
+                        arguments = listOf(
+                            navArgument("phoneNumber") { type = NavType.StringType },
+                            navArgument("name") { type = NavType.StringType; defaultValue = "Farmer" },
+                            navArgument("pass") { type = NavType.StringType; defaultValue = "" },
+                            navArgument("land") { type = NavType.StringType; defaultValue = "4.5" },
+                            navArgument("loc") { type = NavType.StringType; defaultValue = defaultLocation }
+                        )
+                    ) { backStackEntry ->
+                        val phone = backStackEntry.arguments?.getString("phoneNumber") ?: ""
+                        val name = backStackEntry.arguments?.getString("name") ?: "Farmer"
+                        val pass = backStackEntry.arguments?.getString("pass") ?: ""
+                        val land = backStackEntry.arguments?.getString("land") ?: "4.5"
+                        val loc = backStackEntry.arguments?.getString("loc") ?: defaultLocation
+
+                        OtpScreen(
+                            phoneNumber = phone,
+                            onBack = { navController.popBackStack() },
+                            onVerificationSuccess = { verifiedPhone ->
+                                if (pass.isNotEmpty()) {
+                                    AuthRepository.register(
+                                        mobile = verifiedPhone,
+                                        name = name,
+                                        pass = pass
+                                    )
+                                }
+                                navController.navigate("dashboard/$name/$verifiedPhone/$land/$loc") {
                                     popUpTo("login") { inclusive = true }
                                 }
                             }
                         )
                     }
 
-                    // Main App Shell with Bottom Bar & Language State
-                    composable(route = "dashboard/{name}/{mobile}") { backStackEntry ->
+                    composable(route = "dashboard/{name}/{mobile}/{landSize}/{location}") { backStackEntry ->
                         val farmerName = backStackEntry.arguments?.getString("name") ?: "Farmer"
                         val farmerMobile = backStackEntry.arguments?.getString("mobile") ?: "9876543210"
+                        val landSize = backStackEntry.arguments?.getString("landSize") ?: "4.5"
+                        val initialLocation = backStackEntry.arguments?.getString("location") ?: defaultLocation
 
                         MainAppShell(
                             navController = navController,
                             farmerName = farmerName,
                             farmerMobile = farmerMobile,
+                            landSize = landSize,
+                            initialLocation = initialLocation,
                             currentLanguage = currentLanguage,
                             onLanguageToggle = {
                                 currentLanguage = if (currentLanguage == AppLanguage.ENGLISH) AppLanguage.TELUGU else AppLanguage.ENGLISH
@@ -116,21 +180,50 @@ class MainActivity : ComponentActivity() {
                     }
 
                     // Feature Screens
-                    composable(route = "market_prices") {
-                        MarketPriceScreen(onBack = { navController.popBackStack() })
-                    }
-                    composable(route = "soil_list") {
-                        SoilListScreen(
-                            onBack = { navController.popBackStack() },
-                            onSoilClick = { name -> navController.navigate("soil_detail/$name") }
-                        )
-                    }
-                    composable(route = "soil_detail/{soilName}") { backStackEntry ->
-                        SoilDetailScreen(
-                            soilName = backStackEntry.arguments?.getString("soilName") ?: "Black Soil",
+                    composable(route = "market_prices/{location}") { backStackEntry ->
+                        val loc = backStackEntry.arguments?.getString("location") ?: "Nalgonda, Telangana"
+                        MarketPriceScreen(
+                            locationName = loc,
                             onBack = { navController.popBackStack() }
                         )
                     }
+                    composable(route = "market_prices") {
+                        MarketPriceScreen(onBack = { navController.popBackStack() })
+                    }
+
+                    composable(route = "weather_alerts/{location}") { backStackEntry ->
+                        val loc = backStackEntry.arguments?.getString("location") ?: "Nalgonda, Telangana"
+                        WeatherAlertsScreen(
+                            locationName = loc,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+
+                    composable(route = "soil_list") {
+                        SoilListScreen(
+                            onBack = { navController.popBackStack() },
+                            onSoilClick = { id -> navController.navigate("soil_detail/$id") }
+                        )
+                    }
+                    composable(
+                        route = "soil_detail/{soilId}",
+                        arguments = listOf(navArgument("soilId") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val soilId = backStackEntry.arguments?.getString("soilId") ?: "black_soil"
+                        SoilDetailScreen(
+                            soilId = soilId,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+
+                    composable(route = "ai_chat") {
+                        AIChatScreen(
+                            currentLanguage = currentLanguage,
+                            onBack = { navController.popBackStack() },
+                            onNavigateToCropDoctor = { navController.navigate("ai_detection") }
+                        )
+                    }
+
                     composable(route = "govt_schemes") {
                         SchemesScreen(onBack = { navController.popBackStack() })
                     }
@@ -139,9 +232,6 @@ class MainActivity : ComponentActivity() {
                     }
                     composable(route = "ai_detection") {
                         AIDetectionScreen(onBack = { navController.popBackStack() })
-                    }
-                    composable(route = "weather_alerts") {
-                        WeatherAlertsScreen(onBack = { navController.popBackStack() })
                     }
                 }
             }
@@ -164,11 +254,14 @@ fun MainAppShell(
     navController: NavController,
     farmerName: String,
     farmerMobile: String,
+    landSize: String,
+    initialLocation: String,
     currentLanguage: AppLanguage,
     onLanguageToggle: () -> Unit
 ) {
     val brandForestGreen = Color(0xFF0F5A2C)
-    var selectedTab by remember { mutableStateOf(0) } // 0 = Home, 1 = Profile
+    var selectedTab by remember { mutableStateOf(0) }
+    var currentLocation by remember { mutableStateOf(initialLocation) }
 
     Scaffold(
         bottomBar = {
@@ -228,12 +321,17 @@ fun MainAppShell(
                     navController = navController,
                     farmerName = farmerName,
                     farmerMobile = farmerMobile,
+                    location = currentLocation,
                     currentLanguage = currentLanguage,
                     onLanguageToggle = onLanguageToggle
                 )
                 1 -> FarmerProfileContent(
+                    navController = navController,
                     farmerName = farmerName,
                     farmerMobile = farmerMobile,
+                    landSize = landSize,
+                    location = currentLocation,
+                    onLocationChange = { newLoc -> currentLocation = newLoc },
                     currentLanguage = currentLanguage,
                     onLanguageToggle = onLanguageToggle,
                     onLogout = {
@@ -252,15 +350,15 @@ fun FarmerDashboardContent(
     navController: NavController,
     farmerName: String,
     farmerMobile: String,
+    location: String,
     currentLanguage: AppLanguage,
     onLanguageToggle: () -> Unit
 ) {
     val brandForestGreen = Color(0xFF0F5A2C)
-    val pageBg = Color(0xFFF6FAF6)
-
     val isTelugu = currentLanguage == AppLanguage.TELUGU
+    val districtShort = location.substringBefore(",")
 
-    val services = remember(currentLanguage) {
+    val services = remember(currentLanguage, location) {
         listOf(
             DashboardService(
                 title = if (isTelugu) "నేల రకాలు" else "Soil Types",
@@ -280,14 +378,24 @@ fun FarmerDashboardContent(
                 badgeText = if (isTelugu) "AI స్కానర్" else "AI Diagnostic",
                 destinationRoute = "ai_detection"
             ),
+            // The AI Chat Assistant Block - styled identically to Soil Types and Crop Doctor
+            DashboardService(
+                title = if (isTelugu) "AI చాట్ సహాయకుడు" else "Agri AI Chat",
+                subtitle = if (isTelugu) "24x7 రైతు సలహాదారు" else "Instant Crop Advisor",
+                icon = Icons.Default.SmartToy,
+                gradientColors = listOf(Color(0xFFFFFFFF), Color(0xFFE0F2FE)),
+                iconTint = Color(0xFF0284C7),
+                badgeText = if (isTelugu) "AI అసిస్టెంట్" else "AI Advisor",
+                destinationRoute = "ai_chat"
+            ),
             DashboardService(
                 title = if (isTelugu) "మార్కెట్ ధరలు" else "Market Prices",
-                subtitle = if (isTelugu) "తాజా మార్కెట్ / మండి ధరలు" else "Live Mandi Rates",
+                subtitle = if (isTelugu) "మండి ధరలు ($districtShort)" else "Mandi Rates ($districtShort)",
                 icon = Icons.Default.Storefront,
                 gradientColors = listOf(Color(0xFFFFFFFF), Color(0xFFF3E5F5)),
                 iconTint = Color(0xFF7B1FA2),
                 badgeText = if (isTelugu) "రోజువారీ ధరలు" else "Daily Mandi",
-                destinationRoute = "market_prices"
+                destinationRoute = "market_prices/$location"
             ),
             DashboardService(
                 title = if (isTelugu) "ప్రభుత్వ పథకాలు" else "Govt Schemes",
@@ -309,242 +417,296 @@ fun FarmerDashboardContent(
             ),
             DashboardService(
                 title = if (isTelugu) "వాతావరణం" else "Weather Updates",
-                subtitle = if (isTelugu) "వర్ష సూచన & వాతావరణ హెచ్చరికలు" else "Rain & Climate Forecast",
+                subtitle = if (isTelugu) "వర్ష సూచన ($districtShort)" else "Rain Forecast ($districtShort)",
                 icon = Icons.Default.WbSunny,
                 gradientColors = listOf(Color(0xFFFFFFFF), Color(0xFFFFFDE7)),
                 iconTint = Color(0xFFF57F17),
                 badgeText = if (isTelugu) "వాతావరణం" else "Weather",
-                destinationRoute = "weather_alerts"
+                destinationRoute = "weather_alerts/$location"
             )
         )
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(pageBg)
-            .verticalScroll(rememberScrollState())
-    ) {
-        // Nature Gradient Top Banner
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(Color(0xFF0F5A2C), Color(0xFF1B5E20), Color(0xFF2E7D32))
-                    ),
-                    shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp)
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        Color(0xFF0F5A2C),
+                        Color(0xFFF0F7F1),
+                        Color(0xFFE5F2E7),
+                        Color(0xFFF7FAF7)
+                    )
                 )
-                .padding(horizontal = 20.dp)
-                .padding(top = 44.dp, bottom = 28.dp)
+            )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
         ) {
-            Column {
+            // Nature Gradient Top Header
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(Color(0xFF09391B), Color(0xFF0F5A2C), Color(0xFF1B6B37))
+                        ),
+                        shape = RoundedCornerShape(bottomStart = 34.dp, bottomEnd = 34.dp)
+                    )
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 40.dp, bottom = 26.dp)
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                modifier = Modifier
+                                    .size(46.dp)
+                                    .shadow(6.dp, CircleShape),
+                                shape = CircleShape,
+                                color = Color.White
+                            ) {
+                                androidx.compose.foundation.Image(
+                                    painter = androidx.compose.ui.res.painterResource(id = R.drawable.agri_logo),
+                                    contentDescription = "AgriDevelop Logo",
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(5.dp),
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            Column {
+                                Text(
+                                    text = AppStrings.appTitle(currentLanguage),
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color.White,
+                                    letterSpacing = 0.5.sp
+                                )
+                                Text(
+                                    text = AppStrings.appSubtitle(currentLanguage),
+                                    fontSize = 11.sp,
+                                    color = Color(0xFFC8E6C9),
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+
+                        Surface(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(20.dp))
+                                .clickable { onLanguageToggle() },
+                            color = Color.White.copy(alpha = 0.18f),
+                            border = androidx.compose.foundation.BorderStroke(1.2.dp, Color.White.copy(alpha = 0.45f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Language,
+                                    contentDescription = "Language",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = if (isTelugu) "తెలుగు" else "ENG",
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .shadow(6.dp, RoundedCornerShape(22.dp)),
+                        shape = RoundedCornerShape(22.dp),
+                        color = Color.White.copy(alpha = 0.16f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.35f))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(52.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White)
+                                    .border(2.dp, Color(0xFFE8F5E9), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = null,
+                                    tint = brandForestGreen,
+                                    modifier = Modifier.size(30.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(14.dp))
+
+                            Column {
+                                Text(
+                                    text = AppStrings.greeting(currentLanguage, farmerName),
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "+91 $farmerMobile • ${AppStrings.region(currentLanguage, location)}",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFFE8F5E9),
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Services Grid Section with standard service cards
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp)
+                    .padding(top = 22.dp, bottom = 30.dp)
+            ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            modifier = Modifier
+                                .size(4.dp, 18.dp)
+                                .clip(RoundedCornerShape(2.dp)),
+                            color = brandForestGreen
+                        ) {}
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = AppStrings.appTitle(currentLanguage),
-                            fontSize = 24.sp,
+                            text = AppStrings.servicesHeader(currentLanguage),
+                            fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            letterSpacing = 0.5.sp
-                        )
-                        Text(
-                            text = AppStrings.appSubtitle(currentLanguage),
-                            fontSize = 12.sp,
-                            color = Color(0xFFC8E6C9),
-                            fontWeight = FontWeight.Medium
+                            color = Color(0xFF1B3824)
                         )
                     }
 
-                    // Language Switch Pill
                     Surface(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(20.dp))
-                            .clickable { onLanguageToggle() },
-                        color = Color.White.copy(alpha = 0.2f),
-                        border = androidx.compose.foundation.BorderStroke(1.2.dp, Color.White.copy(alpha = 0.5f))
+                        shape = RoundedCornerShape(12.dp),
+                        color = brandForestGreen.copy(alpha = 0.1f)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Language,
-                                contentDescription = "Language",
-                                tint = Color.White,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(5.dp))
-                            Text(
-                                text = if (isTelugu) "తెలుగు" else "ENG",
-                                color = Color.White,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                        Text(
+                            text = AppStrings.toolsCount(currentLanguage),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = brandForestGreen,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                // Glassmorphic Profile Card
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    color = Color.White.copy(alpha = 0.15f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.25f))
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(680.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    userScrollEnabled = false
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
+                    items(services) { item ->
+                        Card(
                             modifier = Modifier
-                                .size(50.dp)
-                                .clip(CircleShape)
-                                .background(Color.White),
-                            contentAlignment = Alignment.Center
+                                .fillMaxWidth()
+                                .height(155.dp)
+                                .clickable { navController.navigate(item.destinationRoute) },
+                            shape = RoundedCornerShape(22.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Person,
-                                contentDescription = null,
-                                tint = brandForestGreen,
-                                modifier = Modifier.size(30.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(14.dp))
-
-                        Column {
-                            Text(
-                                text = AppStrings.greeting(currentLanguage, farmerName),
-                                fontSize = 17.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "+91 $farmerMobile • ${AppStrings.region(currentLanguage)}",
-                                fontSize = 12.sp,
-                                color = Color(0xFFE8F5E9)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // Services Grid
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 18.dp)
-                .padding(top = 22.dp, bottom = 28.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = AppStrings.servicesHeader(currentLanguage),
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1B3824)
-                )
-                Text(
-                    text = AppStrings.toolsCount(currentLanguage),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = brandForestGreen
-                )
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(510.dp),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-                userScrollEnabled = false
-            ) {
-                items(services) { item ->
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(155.dp)
-                            .clickable { navController.navigate(item.destinationRoute) },
-                        shape = RoundedCornerShape(20.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Brush.verticalGradient(item.gradientColors))
-                                .border(1.dp, Color(0xFFE0EAE2), RoundedCornerShape(20.dp))
-                                .padding(14.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier.fillMaxSize(),
-                                verticalArrangement = Arrangement.SpaceBetween
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Brush.verticalGradient(item.gradientColors))
+                                    .border(1.2.dp, Color(0xFFE2EDE4), RoundedCornerShape(22.dp))
+                                    .padding(14.dp)
                             ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.Top
+                                Column(
+                                    modifier = Modifier.fillMaxSize(),
+                                    verticalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(44.dp)
-                                            .clip(RoundedCornerShape(14.dp))
-                                            .background(item.iconTint.copy(alpha = 0.12f)),
-                                        contentAlignment = Alignment.Center
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.Top
                                     ) {
-                                        Icon(
-                                            imageVector = item.icon,
-                                            contentDescription = item.title,
-                                            tint = item.iconTint,
-                                            modifier = Modifier.size(24.dp)
-                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .size(44.dp)
+                                                .clip(RoundedCornerShape(14.dp))
+                                                .background(item.iconTint.copy(alpha = 0.12f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = item.icon,
+                                                contentDescription = item.title,
+                                                tint = item.iconTint,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                        }
+
+                                        Surface(
+                                            color = item.iconTint.copy(alpha = 0.12f),
+                                            shape = RoundedCornerShape(12.dp)
+                                        ) {
+                                            Text(
+                                                text = item.badgeText,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = item.iconTint,
+                                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                                            )
+                                        }
                                     }
 
-                                    Surface(
-                                        color = item.iconTint.copy(alpha = 0.1f),
-                                        shape = RoundedCornerShape(12.dp)
-                                    ) {
+                                    Column {
                                         Text(
-                                            text = item.badgeText,
-                                            fontSize = 9.sp,
+                                            text = item.title,
+                                            fontSize = 15.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = item.iconTint,
-                                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                                            color = Color(0xFF1E293B)
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = item.subtitle,
+                                            fontSize = 11.sp,
+                                            color = Color(0xFF64748B),
+                                            lineHeight = 14.sp
                                         )
                                     }
-                                }
-
-                                Column {
-                                    Text(
-                                        text = item.title,
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF1E293B)
-                                    )
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = item.subtitle,
-                                        fontSize = 11.sp,
-                                        color = Color(0xFF64748B),
-                                        lineHeight = 14.sp
-                                    )
                                 }
                             }
                         }
@@ -557,8 +719,12 @@ fun FarmerDashboardContent(
 
 @Composable
 fun FarmerProfileContent(
+    navController: NavController,
     farmerName: String,
     farmerMobile: String,
+    landSize: String = "4.5",
+    location: String = "Nalgonda, Telangana",
+    onLocationChange: (String) -> Unit,
     currentLanguage: AppLanguage,
     onLanguageToggle: () -> Unit,
     onLogout: () -> Unit
@@ -573,6 +739,18 @@ fun FarmerProfileContent(
 
     var notificationsEnabled by remember { mutableStateOf(true) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showLocationDialog by remember { mutableStateOf(false) }
+
+    val districts = listOf(
+        "Nalgonda, Telangana" to "నల్గొండ",
+        "Suryapet, Telangana" to "సూర్యాపేట",
+        "Khammam, Telangana" to "ఖమ్మం",
+        "Warangal, Telangana" to "వరంగల్",
+        "Karimnagar, Telangana" to "కరీంనగర్",
+        "Nizamabad, Telangana" to "నిజామాబాద్",
+        "Mahabubnagar, Telangana" to "మహబూబ్‌నగర్",
+        "Hyderabad, Telangana" to "హైదరాబాద్"
+    )
 
     Column(
         modifier = Modifier
@@ -581,7 +759,6 @@ fun FarmerProfileContent(
             .verticalScroll(rememberScrollState())
             .padding(bottom = 24.dp)
     ) {
-        // --- Gradient Hero Header ---
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -604,7 +781,6 @@ fun FarmerProfileContent(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Emblem Avatar Badge
                 Box(
                     modifier = Modifier
                         .size(92.dp)
@@ -631,17 +807,44 @@ fun FarmerProfileContent(
                     fontSize = 20.sp,
                     fontWeight = FontWeight.ExtraBold
                 )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = "+91 $farmerMobile • ${AppStrings.region(currentLanguage)}",
-                    color = Color(0xFFE8F5E9),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium
-                )
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Surface(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { showLocationDialog = true },
+                    color = Color.White.copy(alpha = 0.2f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.4f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Place,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "+91 $farmerMobile • ${AppStrings.region(currentLanguage, location)}",
+                            color = Color(0xFFE8F5E9),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Change Location",
+                            tint = Color.White.copy(alpha = 0.8f),
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
+                }
             }
         }
 
-        // --- Quick Highlights Badges ---
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -652,7 +855,7 @@ fun FarmerProfileContent(
             ProfileStatCard(
                 modifier = Modifier.weight(1f),
                 title = if (isTelugu) "భూమి విస్తీర్ణం" else "Land Size",
-                value = if (isTelugu) "4.5 ఎకరాలు" else "4.5 Acres",
+                value = if (isTelugu) "$landSize ఎకరాలు" else "$landSize Acres",
                 badgeColor = sunnyAmber,
                 icon = Icons.Default.Landscape
             )
@@ -672,7 +875,6 @@ fun FarmerProfileContent(
             )
         }
 
-        // --- App Settings ---
         ProfileSectionTitle(if (isTelugu) "యాప్ సెట్టింగ్‌లు" else "App Settings")
         ProfileCardWrapper {
             ProfileSwitchRow(
@@ -684,6 +886,17 @@ fun FarmerProfileContent(
                 onCheckedChange = { notificationsEnabled = it }
             )
             HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
+
+            ProfileClickableRow(
+                icon = Icons.Default.Place,
+                iconColor = Color(0xFF0284C7),
+                title = if (isTelugu) "ప్రాంతం / జిల్లా మార్చండి" else "Change Region / District",
+                subtitle = AppStrings.region(currentLanguage, location),
+                trailingBadge = if (isTelugu) "మార్చు" else "Edit",
+                onClick = { showLocationDialog = true }
+            )
+            HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
+
             ProfileClickableRow(
                 icon = Icons.Default.Language,
                 iconColor = vibrantBlue,
@@ -696,7 +909,6 @@ fun FarmerProfileContent(
 
         Spacer(modifier = Modifier.height(18.dp))
 
-        // --- Farm Data & Records ---
         ProfileSectionTitle(if (isTelugu) "వ్యవసాయ వివరాలు" else "Farm Records & Preferences")
         ProfileCardWrapper {
             ProfileClickableRow(
@@ -704,21 +916,24 @@ fun FarmerProfileContent(
                 iconColor = emeraldGreen,
                 title = if (isTelugu) "నా పంటలు & నేల వివరాలు" else "My Crops & Soil Details",
                 subtitle = AppStrings.farmerCategory(currentLanguage),
-                onClick = { }
+                onClick = {
+                    navController.navigate("soil_list")
+                }
             )
             HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
             ProfileClickableRow(
                 icon = Icons.Default.Storefront,
                 iconColor = sunnyAmber,
                 title = if (isTelugu) "ప్రాంతీయ మార్కెట్లు" else "Saved Mandis & Yards",
-                subtitle = AppStrings.region(currentLanguage),
-                onClick = { }
+                subtitle = if (isTelugu) "మండి ధరలు (${location.substringBefore(",")})" else "Mandi prices for ${location.substringBefore(",")}",
+            onClick = {
+                navController.navigate("market_prices/$location")
+            }
             )
         }
 
         Spacer(modifier = Modifier.height(18.dp))
 
-        // --- Support & Sign Out ---
         ProfileSectionTitle(if (isTelugu) "సహాయం & ఖాతా" else "Support & Account")
         ProfileCardWrapper {
             ProfileClickableRow(
@@ -737,6 +952,63 @@ fun FarmerProfileContent(
                 onClick = { showLogoutDialog = true }
             )
         }
+    }
+
+    if (showLocationDialog) {
+        AlertDialog(
+            onDismissRequest = { showLocationDialog = false },
+            title = {
+                Text(
+                    text = if (isTelugu) "మీ జిల్లా / మండి మార్కెట్ ఎంచుకోండి" else "Select Your District / Mandi",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 350.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    districts.forEach { (engName, telName) ->
+                        val isSelected = location.equals(engName, ignoreCase = true)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    onLocationChange(engName)
+                                    showLocationDialog = false
+                                }
+                                .padding(vertical = 12.dp, horizontal = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Default.Place,
+                                contentDescription = null,
+                                tint = if (isSelected) primaryGreen else Color.Gray,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = if (isTelugu) "$telName (${engName.substringBefore(",")})" else engName.substringBefore(","),
+                            fontSize = 15.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isSelected) primaryGreen else Color(0xFF1E293B)
+                            )
+                        }
+                        HorizontalDivider(color = Color(0xFFF1F5F9))
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showLocationDialog = false }) {
+                    Text(if (isTelugu) "రద్దు చేయి" else "Cancel", color = Color.Gray)
+                }
+            }
+        )
     }
 
     if (showLogoutDialog) {

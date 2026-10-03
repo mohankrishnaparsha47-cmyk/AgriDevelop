@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -57,4 +58,21 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     implementation("io.coil-kt:coil-compose:2.6.0")
     implementation("org.tensorflow:tensorflow-lite-task-vision:0.4.4")
+    // Gemini Vision SDK
+    implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
+
+    // Firebase BoM
+    implementation(platform("com.google.firebase:firebase-bom:33.4.0"))
+    implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("androidx.browser:browser:1.8.0")
+    implementation("com.pierfrancescosoffritti.androidyoutubeplayer:core:12.1.1")
+
+        // Google Gemini Generative AI SDK
+        implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
+
+        // Coil for Compose image loading
+        implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation("io.coil-kt:coil-compose:2.6.0")
+
+
 }
