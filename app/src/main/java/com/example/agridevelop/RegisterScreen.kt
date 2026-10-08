@@ -1,6 +1,9 @@
 package com.example.agridevelop
 
+import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -9,15 +12,25 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Landscape
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -25,28 +38,28 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegisterScreen(
     onNavigateToLogin: () -> Unit,
-    onNavigateToOtp: (name: String, mobile: String, password: String, landSize: String, location: String) -> Unit
+    onNavigateToOtp: (name: String, mobile: String, pass: String, land: String, loc: String) -> Unit
 ) {
-    val darkForest = Color(0xFF0F3820)
-    val forestGreen = Color(0xFF0F5A2C)
-    val pageBg = Color(0xFFF4F7F4)
+    val context = LocalContext.current
+
+    val primaryDarkGreen = Color(0xFF0F5A2C)
+    val lightBorderColor = Color(0xFFE2E8F0)
+    val placeholderColor = Color(0xFF94A3B8)
+    val textDarkColor = Color(0xFF1E293B)
+    val subtextColor = Color(0xFF64748B)
 
     var fullName by remember { mutableStateOf("") }
     var mobileNumber by remember { mutableStateOf("") }
-    var landSize by remember { mutableStateOf("") }
-    var selectedLocation by remember { mutableStateOf("Nalgonda, Telangana") }
     var password by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
+    var landSize by remember { mutableStateOf("") }
+    var selectedLocation by remember { mutableStateOf("") }
+    var showDistrictDialog by remember { mutableStateOf(false) }
     var passwordVisible by remember { mutableStateOf(false) }
 
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-    var showLocationDialog by remember { mutableStateOf(false) }
-
-    val districts = listOf(
+    val districtOptions = listOf(
         "Nalgonda, Telangana",
         "Suryapet, Telangana",
         "Khammam, Telangana",
@@ -57,305 +70,479 @@ fun RegisterScreen(
         "Hyderabad, Telangana"
     )
 
-    fun handleRegistration() {
-        if (fullName.trim().isEmpty()) {
-            errorMessage = "Please enter your full name."
-            return
-        }
-        if (mobileNumber.trim().length != 10 || !mobileNumber.all { it.isDigit() }) {
-            errorMessage = "Please enter a valid 10-digit mobile number."
-            return
-        }
-        if (landSize.trim().isEmpty()) {
-            errorMessage = "Please specify your farm / land size in acres."
-            return
-        }
-        if (password.length < 6) {
-            errorMessage = "Password must be at least 6 characters long."
-            return
-        }
-        if (password != confirmPassword) {
-            errorMessage = "Passwords do not match."
-            return
-        }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+    ) {
+        // Bottom Farm Scenery with Soft Gradient Blend Overlay
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(210.dp)
+                .align(Alignment.BottomCenter)
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.login_farm_banner),
+                contentDescription = "Farm scenery",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
 
-        errorMessage = null
-        // Trigger OTP verification flow with pending registration data
-        onNavigateToOtp(fullName.trim(), mobileNumber.trim(), password, landSize.trim(), selectedLocation)
-    }
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Farmer Registration", fontWeight = FontWeight.Bold, color = Color.White) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateToLogin) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = darkForest)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(90.dp)
+                    .align(Alignment.TopCenter)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.White,
+                                Color.White.copy(alpha = 0.85f),
+                                Color.White.copy(alpha = 0.0f)
+                            )
+                        )
+                    )
             )
         }
-    ) { padding ->
+
+        // Scrollable Page Content
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(pageBg)
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 20.dp),
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Surface(
-                modifier = Modifier.size(68.dp),
-                shape = CircleShape,
-                color = forestGreen.copy(alpha = 0.12f)
+            // Top Curved Forest Green Header
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp)
+                    .clip(RoundedCornerShape(bottomStart = 36.dp, bottomEnd = 36.dp))
+                    .background(primaryDarkGreen),
+                contentAlignment = Alignment.Center
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Default.PersonAdd,
-                        contentDescription = null,
-                        tint = forestGreen,
-                        modifier = Modifier.size(34.dp)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(top = 18.dp)
+                ) {
+                    Surface(
+                        modifier = Modifier
+                            .size(68.dp)
+                            .shadow(6.dp, CircleShape),
+                        shape = CircleShape,
+                        color = Color.White
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.agri_logo),
+                            contentDescription = "AgriDevelop Emblem",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(6.dp),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = "AgriDevelop",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.White
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = "Better Farming • Brighter Future",
+                        fontSize = 13.sp,
+                        color = Color(0xFFD1E7D5),
+                        fontWeight = FontWeight.Medium
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            Text(
-                text = "Create Farmer Account",
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF1E293B)
-            )
-            Text(
-                text = "Enter your details to verify via SMS OTP",
-                fontSize = 13.sp,
-                color = Color(0xFF64748B)
-            )
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Full Name Field
-            OutlinedTextField(
-                value = fullName,
-                onValueChange = { fullName = it; errorMessage = null },
-                label = { Text("Full Name (రైతు పేరు)") },
-                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = forestGreen) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
-                    focusedBorderColor = forestGreen,
-                    unfocusedBorderColor = Color(0xFFDDE7DF)
-                )
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Mobile Number Field
-            OutlinedTextField(
-                value = mobileNumber,
-                onValueChange = {
-                    if (it.length <= 10 && it.all { ch -> ch.isDigit() }) {
-                        mobileNumber = it
-                        errorMessage = null
-                    }
-                },
-                label = { Text("Mobile Number (ఫోన్ నెంబర్)") },
-                prefix = { Text("+91 ", fontWeight = FontWeight.Bold, color = forestGreen) },
-                leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null, tint = forestGreen) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
-                    focusedBorderColor = forestGreen,
-                    unfocusedBorderColor = Color(0xFFDDE7DF)
-                )
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Land Size
-            OutlinedTextField(
-                value = landSize,
-                onValueChange = { landSize = it; errorMessage = null },
-                label = { Text("Land Size in Acres (భూమి విస్తీర్ణం)") },
-                suffix = { Text("Acres", color = Color(0xFF64748B)) },
-                leadingIcon = { Icon(Icons.Default.Landscape, contentDescription = null, tint = forestGreen) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
-                    focusedBorderColor = forestGreen,
-                    unfocusedBorderColor = Color(0xFFDDE7DF)
-                )
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // District / Region Selector
-            Surface(
+            // Main Registration Card
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .clickable { showLocationDialog = true },
-                shape = RoundedCornerShape(14.dp),
-                color = Color.White,
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDDE7DF))
+                    .padding(horizontal = 20.dp)
+                    .shadow(
+                        elevation = 10.dp,
+                        shape = RoundedCornerShape(28.dp),
+                        spotColor = Color.Black.copy(alpha = 0.12f)
+                    ),
+                shape = RoundedCornerShape(28.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White)
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 28.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Icon(Icons.Default.Place, contentDescription = null, tint = forestGreen)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(text = "District / Mandi Location", fontSize = 11.sp, color = Color(0xFF64748B))
-                        Text(text = selectedLocation, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF1E293B))
-                    }
-                    Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color.Gray)
-                }
-            }
+                    Text(
+                        text = "Register",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = textDarkColor
+                    )
 
-            Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
-            // Password Field
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it; errorMessage = null },
-                label = { Text("Create Password (పాస్‌వర్డ్)") },
-                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = forestGreen) },
-                trailingIcon = {
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(
-                            imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                            contentDescription = null,
-                            tint = Color.Gray
+                    Text(
+                        text = "Create your farmer profile to get started",
+                        fontSize = 13.sp,
+                        color = subtextColor
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // 1. Full Name Field
+                    OutlinedTextField(
+                        value = fullName,
+                        onValueChange = { fullName = it },
+                        placeholder = {
+                            Text("Full Name (రైతు పేరు)", fontSize = 14.sp, color = placeholderColor)
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Person,
+                                contentDescription = null,
+                                tint = primaryDarkGreen,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        },
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = primaryDarkGreen,
+                            unfocusedBorderColor = lightBorderColor,
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // 2. Mobile Number with +91 Country Badge
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            modifier = Modifier
+                                .height(56.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .border(1.2.dp, lightBorderColor, RoundedCornerShape(14.dp)),
+                            color = Color.White
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(text = "🇮🇳", fontSize = 18.sp)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "+91",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = textDarkColor
+                                )
+                                Spacer(modifier = Modifier.width(2.dp))
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropDown,
+                                    contentDescription = null,
+                                    tint = Color.Gray,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(10.dp))
+
+                        OutlinedTextField(
+                            value = mobileNumber,
+                            onValueChange = { if (it.length <= 10) mobileNumber = it },
+                            placeholder = {
+                                Text("Mobile Number", fontSize = 14.sp, color = placeholderColor)
+                            },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                            singleLine = true,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(56.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = primaryDarkGreen,
+                                unfocusedBorderColor = lightBorderColor,
+                                focusedContainerColor = Color.White,
+                                unfocusedContainerColor = Color.White
+                            )
                         )
                     }
-                },
-                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
-                    focusedBorderColor = forestGreen,
-                    unfocusedBorderColor = Color(0xFFDDE7DF)
-                )
-            )
 
-            Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
-            // Confirm Password Field
-            OutlinedTextField(
-                value = confirmPassword,
-                onValueChange = { confirmPassword = it; errorMessage = null },
-                label = { Text("Confirm Password") },
-                leadingIcon = { Icon(Icons.Default.LockReset, contentDescription = null, tint = forestGreen) },
-                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
-                    focusedBorderColor = forestGreen,
-                    unfocusedBorderColor = Color(0xFFDDE7DF)
-                )
-            )
+                    // 3. Password Field
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        placeholder = {
+                            Text("Password", fontSize = 14.sp, color = placeholderColor)
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = primaryDarkGreen,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        },
+                        trailingIcon = {
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(
+                                    imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = null,
+                                    tint = Color(0xFF64748B),
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        },
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = primaryDarkGreen,
+                            unfocusedBorderColor = lightBorderColor,
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White
+                        )
+                    )
 
-            errorMessage?.let { msg ->
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = msg,
-                    color = Color(0xFFDC2626),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
+                    Spacer(modifier = Modifier.height(14.dp))
 
-            Spacer(modifier = Modifier.height(22.dp))
+                    // 4. Land Size with Clear "Acres" Unit Tag
+                    OutlinedTextField(
+                        value = landSize,
+                        onValueChange = { landSize = it },
+                        placeholder = {
+                            Text("Land Size (e.g., 4.5)", fontSize = 14.sp, color = placeholderColor)
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Landscape,
+                                contentDescription = null,
+                                tint = primaryDarkGreen,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        },
+                        trailingIcon = {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFFE8F5E9),
+                                modifier = Modifier.padding(end = 12.dp)
+                            ) {
+                                Text(
+                                    text = "Acres / ఎకరాలు",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = primaryDarkGreen,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = primaryDarkGreen,
+                            unfocusedBorderColor = lightBorderColor,
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White
+                        )
+                    )
 
-            // Submit Button
-            Button(
-                onClick = { handleRegistration() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-                    .shadow(4.dp, RoundedCornerShape(14.dp)),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = forestGreen)
-            ) {
-                Icon(Icons.Default.Sms, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Verify Mobile & Register", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            }
+                    Spacer(modifier = Modifier.height(14.dp))
 
-            Spacer(modifier = Modifier.height(18.dp))
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "Already have an account? ", fontSize = 14.sp, color = Color(0xFF64748B))
-                Text(
-                    text = "Login",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = forestGreen,
-                    modifier = Modifier.clickable { onNavigateToLogin() }
-                )
-            }
-        }
-    }
-
-    if (showLocationDialog) {
-        AlertDialog(
-            onDismissRequest = { showLocationDialog = false },
-            title = { Text("Select Your District", fontWeight = FontWeight.Bold) },
-            text = {
-                Column {
-                    districts.forEach { dist ->
-                        Row(
+                    // 5. District Selection Box with "District" label inside
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showDistrictDialog = true }
+                    ) {
+                        OutlinedTextField(
+                            value = selectedLocation,
+                            onValueChange = {},
+                            readOnly = true,
+                            enabled = false,
+                            placeholder = {
+                                Text("District", fontSize = 14.sp, color = placeholderColor)
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Place,
+                                    contentDescription = null,
+                                    tint = primaryDarkGreen,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            },
+                            trailingIcon = {
+                                Icon(
+                                    Icons.Default.ArrowDropDown,
+                                    contentDescription = "Select District",
+                                    tint = textDarkColor,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            },
+                            singleLine = true,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable {
-                                    selectedLocation = dist
-                                    showLocationDialog = false
-                                }
-                                .padding(vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = if (selectedLocation == dist) Icons.Default.CheckCircle else Icons.Default.Place,
-                                contentDescription = null,
-                                tint = if (selectedLocation == dist) forestGreen else Color.Gray,
-                                modifier = Modifier.size(18.dp)
+                                .height(56.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                disabledTextColor = textDarkColor,
+                                disabledBorderColor = lightBorderColor,
+                                disabledContainerColor = Color.White,
+                                disabledLeadingIconColor = primaryDarkGreen,
+                                disabledTrailingIconColor = textDarkColor,
+                                disabledPlaceholderColor = placeholderColor
                             )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(text = dist, fontSize = 14.sp, color = Color(0xFF1E293B))
-                        }
-                        HorizontalDivider(color = Color(0xFFF1F5F9))
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(26.dp))
+
+                    // Full-width Solid Green Register Button
+                    Button(
+                        onClick = {
+                            if (fullName.trim().isEmpty()) {
+                                Toast.makeText(context, "Please enter your name", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+                            if (mobileNumber.length < 10) {
+                                Toast.makeText(context, "Please enter a valid 10-digit mobile number", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+                            if (password.length < 4) {
+                                Toast.makeText(context, "Password must be at least 4 characters", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+
+                            val validLand = if (landSize.trim().isEmpty()) "4.5" else landSize.trim()
+                            val validLoc = if (selectedLocation.trim().isEmpty()) "Nalgonda, Telangana" else selectedLocation.trim()
+
+                            onNavigateToOtp(fullName.trim(), mobileNumber.trim(), password, validLand, validLoc)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = primaryDarkGreen)
+                    ) {
+                        Text(
+                            text = "Register",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // Bottom Sign In Navigation Link
+                    Row(
+                        modifier = Modifier.clickable { onNavigateToLogin() },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Already have an account? ",
+                            fontSize = 13.sp,
+                            color = subtextColor
+                        )
+                        Text(
+                            text = "Login",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = primaryDarkGreen
+                        )
                     }
                 }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showLocationDialog = false }) {
-                    Text("Cancel", color = Color.Gray)
-                }
             }
-        )
+
+            Spacer(modifier = Modifier.height(130.dp))
+        }
+
+        // Choice Dialog: Opens only on click
+        if (showDistrictDialog) {
+            AlertDialog(
+                onDismissRequest = { showDistrictDialog = false },
+                title = {
+                    Text(
+                        text = "Select District",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = textDarkColor
+                    )
+                },
+                text = {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 350.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        districtOptions.forEach { district ->
+                            val isSelected = selectedLocation == district
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        selectedLocation = district
+                                        showDistrictDialog = false
+                                    }
+                                    .padding(vertical = 12.dp, horizontal = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Default.Place,
+                                    contentDescription = null,
+                                    tint = if (isSelected) primaryDarkGreen else Color.Gray,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = district,
+                                    fontSize = 15.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isSelected) primaryDarkGreen else textDarkColor
+                                )
+                            }
+                            HorizontalDivider(color = Color(0xFFF1F5F9))
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = {
+                    TextButton(onClick = { showDistrictDialog = false }) {
+                        Text("Cancel", color = Color.Gray)
+                    }
+                }
+            )
+        }
     }
 }

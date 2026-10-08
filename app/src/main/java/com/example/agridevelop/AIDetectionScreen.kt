@@ -5,13 +5,10 @@ import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -26,21 +23,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.google.ai.client.generativeai.GenerativeModel
-import com.google.ai.client.generativeai.type.content
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-
-// Enter your Gemini API key here
-private const val GEMINI_API_KEY = "AQ.Ab8RN6JgXwYF4oN9g9ckNIJgy5bKhP-jJWRWGTdcU4Mh7BbuBA"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -85,45 +74,15 @@ fun AIDetectionScreen(
     }
 
     fun analyzeCropImage(bitmap: Bitmap) {
-        if (GEMINI_API_KEY == "YOUR_GEMINI_API_KEY" || GEMINI_API_KEY.isBlank()) {
-            Toast.makeText(context, "Please configure your Gemini API Key first.", Toast.LENGTH_LONG).show()
-            return
-        }
-
         isAnalyzing = true
         diagnosisResult = null
 
         coroutineScope.launch {
             try {
-                val generativeModel = GenerativeModel(
-                    modelName = "gemini-1.5-flash",
-                    apiKey = GEMINI_API_KEY
-                )
-
-                val prompt = """
-                    You are an expert plant pathologist and agronomist for Telangana farmers.
-                    Analyze this crop leaf image.
-                    Provide the response strictly in ${if (selectedLanguage == "Telugu") "Telugu (తెలుగు) along with English plant names" else "English"}.
-                    
-                    Format the diagnosis clearly:
-                    1. Crop Name & Condition (పంట & గుర్తించిన తెగులు):
-                    2. Severity Level (తీవ్రత): [Low / Moderate / High]
-                    3. Key Symptoms (ప్రధాన లక్షణాలు):
-                    4. Chemical Solution (రసాయన నివారణ మందులు - డోసేజ్ తో సహా):
-                    5. Organic / Natural Remedy (సేంద్రీయ నివారణ - జీవామృతం/నీమాస్ట్రం మొదలైనవి):
-                    6. Prevention Tips (భవిష్యత్ జాగ్రత్తలు):
-                """.trimIndent()
-
-                val inputContent = content {
-                    image(bitmap)
-                    text(prompt)
-                }
-
-                val response = withContext(Dispatchers.IO) {
-                    generativeModel.generateContent(inputContent)
-                }
-
-                diagnosisResult = response.text ?: "Diagnosis could not be completed. Please ensure leaf is clear and well-lit."
+                // Uses the robust, model-discovering AgriAiClient network client
+                val isTelugu = selectedLanguage == "Telugu"
+                val result = AgriAiClient.analyzeCropLeaf(bitmap, isTelugu)
+                diagnosisResult = result
             } catch (e: Exception) {
                 diagnosisResult = "Error connecting to AI diagnostic server: ${e.localizedMessage ?: "Network error"}"
             } finally {

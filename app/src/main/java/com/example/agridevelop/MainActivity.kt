@@ -3,6 +3,7 @@ package com.example.agridevelop
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,6 +27,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -50,8 +53,9 @@ object AppStrings {
     fun appSubtitle(lang: AppLanguage) = if (lang == AppLanguage.TELUGU) "మెరుగైన వ్యవసాయం • ఉజ్వల భవిష్యత్తు" else "Better Farming • Brighter Future"
     fun greeting(lang: AppLanguage, name: String) = if (lang == AppLanguage.TELUGU) "నమస్కారం, $name" else "Namaste, $name"
     fun servicesHeader(lang: AppLanguage) = if (lang == AppLanguage.TELUGU) "వ్యవసాయ సేవలు" else "Agricultural Services"
-    fun toolsCount(lang: AppLanguage) = if (lang == AppLanguage.TELUGU) "7 సేవలు" else "7 Tools"
+    fun toolsCount(lang: AppLanguage) = if (lang == AppLanguage.TELUGU) "6 సేవలు" else "6 Tools"
     fun homeTab(lang: AppLanguage) = if (lang == AppLanguage.TELUGU) "హోమ్" else "Home"
+    fun aiChatTab(lang: AppLanguage) = if (lang == AppLanguage.TELUGU) "AI వాయిస్" else "AI Chat"
     fun profileTab(lang: AppLanguage) = if (lang == AppLanguage.TELUGU) "ప్రొఫైల్" else "Profile"
     fun region(lang: AppLanguage, loc: String = "Nalgonda, Telangana") =
         if (lang == AppLanguage.TELUGU) {
@@ -179,7 +183,6 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // Feature Screens
                     composable(route = "market_prices/{location}") { backStackEntry ->
                         val loc = backStackEntry.arguments?.getString("location") ?: "Nalgonda, Telangana"
                         MarketPriceScreen(
@@ -215,15 +218,6 @@ class MainActivity : ComponentActivity() {
                             onBack = { navController.popBackStack() }
                         )
                     }
-
-                    composable(route = "ai_chat") {
-                        AIChatScreen(
-                            currentLanguage = currentLanguage,
-                            onBack = { navController.popBackStack() },
-                            onNavigateToCropDoctor = { navController.navigate("ai_detection") }
-                        )
-                    }
-
                     composable(route = "govt_schemes") {
                         SchemesScreen(onBack = { navController.popBackStack() })
                     }
@@ -259,7 +253,6 @@ fun MainAppShell(
     currentLanguage: AppLanguage,
     onLanguageToggle: () -> Unit
 ) {
-    val brandForestGreen = Color(0xFF0F5A2C)
     var selectedTab by remember { mutableStateOf(0) }
     var currentLocation by remember { mutableStateOf(initialLocation) }
 
@@ -267,49 +260,69 @@ fun MainAppShell(
         bottomBar = {
             NavigationBar(
                 containerColor = Color.White,
-                tonalElevation = 8.dp
+                tonalElevation = 10.dp,
+                modifier = Modifier.shadow(12.dp)
             ) {
+                // Home
                 NavigationBarItem(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
                     icon = {
-                        Icon(
-                            if (selectedTab == 0) Icons.Filled.Home else Icons.Outlined.Home,
-                            contentDescription = "Home"
-                        )
+                        Icon(if (selectedTab == 0) Icons.Filled.Home else Icons.Outlined.Home, contentDescription = "Home")
                     },
                     label = {
-                        Text(
-                            text = AppStrings.homeTab(currentLanguage),
-                            fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal
-                        )
+                        Text(AppStrings.homeTab(currentLanguage), fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal)
                     },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = brandForestGreen,
-                        selectedTextColor = brandForestGreen,
-                        indicatorColor = Color(0xFFE8F5E9)
+                        selectedIconColor = AgriTheme.EmeraldPrimary,
+                        selectedTextColor = AgriTheme.EmeraldPrimary,
+                        indicatorColor = AgriTheme.MintBackground
                     )
                 )
 
+                // Center AI Voice Tab
                 NavigationBarItem(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
                     icon = {
-                        Icon(
-                            if (selectedTab == 1) Icons.Filled.Person else Icons.Outlined.Person,
-                            contentDescription = "Profile"
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(if (selectedTab == 1) AgriTheme.EmeraldPrimary else Color.Transparent),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Filled.Mic,
+                                contentDescription = "AI Voice",
+                                tint = if (selectedTab == 1) Color.White else AgriTheme.EmeraldPrimary
+                            )
+                        }
                     },
                     label = {
-                        Text(
-                            text = AppStrings.profileTab(currentLanguage),
-                            fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal
-                        )
+                        Text(AppStrings.aiChatTab(currentLanguage), fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal)
                     },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = brandForestGreen,
-                        selectedTextColor = brandForestGreen,
-                        indicatorColor = Color(0xFFE8F5E9)
+                        selectedIconColor = AgriTheme.EmeraldPrimary,
+                        selectedTextColor = AgriTheme.EmeraldPrimary,
+                        indicatorColor = AgriTheme.MintBackground
+                    )
+                )
+
+                // Profile
+                NavigationBarItem(
+                    selected = selectedTab == 2,
+                    onClick = { selectedTab = 2 },
+                    icon = {
+                        Icon(if (selectedTab == 2) Icons.Filled.Person else Icons.Outlined.Person, contentDescription = "Profile")
+                    },
+                    label = {
+                        Text(AppStrings.profileTab(currentLanguage), fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal)
+                    },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = AgriTheme.EmeraldPrimary,
+                        selectedTextColor = AgriTheme.EmeraldPrimary,
+                        indicatorColor = AgriTheme.MintBackground
                     )
                 )
             }
@@ -325,7 +338,12 @@ fun MainAppShell(
                     currentLanguage = currentLanguage,
                     onLanguageToggle = onLanguageToggle
                 )
-                1 -> FarmerProfileContent(
+                1 -> AIChatScreen(
+                    currentLanguage = currentLanguage,
+                    onBack = { selectedTab = 0 },
+                    onNavigateToCropDoctor = { navController.navigate("ai_detection") }
+                )
+                2 -> FarmerProfileContent(
                     navController = navController,
                     farmerName = farmerName,
                     farmerMobile = farmerMobile,
@@ -354,10 +372,10 @@ fun FarmerDashboardContent(
     currentLanguage: AppLanguage,
     onLanguageToggle: () -> Unit
 ) {
-    val brandForestGreen = Color(0xFF0F5A2C)
     val isTelugu = currentLanguage == AppLanguage.TELUGU
     val districtShort = location.substringBefore(",")
 
+    // Colorful, contrasting tile configurations
     val services = remember(currentLanguage, location) {
         listOf(
             DashboardService(
@@ -373,27 +391,17 @@ fun FarmerDashboardContent(
                 title = if (isTelugu) "క్రాప్ డాక్టర్" else "Crop Doctor",
                 subtitle = if (isTelugu) "AI తెగుళ్ల గుర్తింపు" else "AI Disease Scanner",
                 icon = Icons.Default.CameraAlt,
-                gradientColors = listOf(Color(0xFFFFFFFF), Color(0xFFE3F2FD)),
-                iconTint = Color(0xFF1565C0),
-                badgeText = if (isTelugu) "AI స్కానర్" else "AI Diagnostic",
-                destinationRoute = "ai_detection"
-            ),
-            // The AI Chat Assistant Block - styled identically to Soil Types and Crop Doctor
-            DashboardService(
-                title = if (isTelugu) "AI చాట్ సహాయకుడు" else "Agri AI Chat",
-                subtitle = if (isTelugu) "24x7 రైతు సలహాదారు" else "Instant Crop Advisor",
-                icon = Icons.Default.SmartToy,
                 gradientColors = listOf(Color(0xFFFFFFFF), Color(0xFFE0F2FE)),
                 iconTint = Color(0xFF0284C7),
-                badgeText = if (isTelugu) "AI అసిస్టెంట్" else "AI Advisor",
-                destinationRoute = "ai_chat"
+                badgeText = if (isTelugu) "AI స్కానర్" else "AI Diagnostic",
+                destinationRoute = "ai_detection"
             ),
             DashboardService(
                 title = if (isTelugu) "మార్కెట్ ధరలు" else "Market Prices",
                 subtitle = if (isTelugu) "మండి ధరలు ($districtShort)" else "Mandi Rates ($districtShort)",
                 icon = Icons.Default.Storefront,
-                gradientColors = listOf(Color(0xFFFFFFFF), Color(0xFFF3E5F5)),
-                iconTint = Color(0xFF7B1FA2),
+                gradientColors = listOf(Color(0xFFFFFFFF), Color(0xFFF3E8FF)),
+                iconTint = Color(0xFF7C3AED),
                 badgeText = if (isTelugu) "రోజువారీ ధరలు" else "Daily Mandi",
                 destinationRoute = "market_prices/$location"
             ),
@@ -401,8 +409,8 @@ fun FarmerDashboardContent(
                 title = if (isTelugu) "ప్రభుత్వ పథకాలు" else "Govt Schemes",
                 subtitle = if (isTelugu) "రైతు భరోసా & సబ్సిడీలు" else "Financial Aid & Subsidies",
                 icon = Icons.Default.AccountBalance,
-                gradientColors = listOf(Color(0xFFFFFFFF), Color(0xFFFFF3E0)),
-                iconTint = Color(0xFFE65100),
+                gradientColors = listOf(Color(0xFFFFFFFF), Color(0xFFFFF7ED)),
+                iconTint = Color(0xFFEA580C),
                 badgeText = if (isTelugu) "రాయితీలు" else "Subsidies",
                 destinationRoute = "govt_schemes"
             ),
@@ -410,8 +418,8 @@ fun FarmerDashboardContent(
                 title = if (isTelugu) "సాగు వీడియోలు" else "Farming Videos",
                 subtitle = if (isTelugu) "ఆధునిక సాగు మెళకువలు" else "Modern Agri Tutorials",
                 icon = Icons.Default.PlayCircle,
-                gradientColors = listOf(Color(0xFFFFFFFF), Color(0xFFFCE4EC)),
-                iconTint = Color(0xFFC2185B),
+                gradientColors = listOf(Color(0xFFFFFFFF), Color(0xFFFCE7F3)),
+                iconTint = Color(0xFFDB2777),
                 badgeText = if (isTelugu) "వీడియోలు" else "Tutorials",
                 destinationRoute = "farming_videos"
             ),
@@ -419,8 +427,8 @@ fun FarmerDashboardContent(
                 title = if (isTelugu) "వాతావరణం" else "Weather Updates",
                 subtitle = if (isTelugu) "వర్ష సూచన ($districtShort)" else "Rain Forecast ($districtShort)",
                 icon = Icons.Default.WbSunny,
-                gradientColors = listOf(Color(0xFFFFFFFF), Color(0xFFFFFDE7)),
-                iconTint = Color(0xFFF57F17),
+                gradientColors = listOf(Color(0xFFFFFFFF), Color(0xFFFEF9C3)),
+                iconTint = Color(0xFFCA8A04),
                 badgeText = if (isTelugu) "వాతావరణం" else "Weather",
                 destinationRoute = "weather_alerts/$location"
             )
@@ -430,30 +438,19 @@ fun FarmerDashboardContent(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        Color(0xFF0F5A2C),
-                        Color(0xFFF0F7F1),
-                        Color(0xFFE5F2E7),
-                        Color(0xFFF7FAF7)
-                    )
-                )
-            )
+            .background(AgriTheme.CanvasBg)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
         ) {
-            // Nature Gradient Top Header
+            // Enhanced Top Green Gradient Header
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(
-                        Brush.verticalGradient(
-                            colors = listOf(Color(0xFF09391B), Color(0xFF0F5A2C), Color(0xFF1B6B37))
-                        ),
+                        AgriTheme.HeaderGradient,
                         shape = RoundedCornerShape(bottomStart = 34.dp, bottomEnd = 34.dp)
                     )
                     .padding(horizontal = 20.dp)
@@ -468,18 +465,18 @@ fun FarmerDashboardContent(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Surface(
                                 modifier = Modifier
-                                    .size(46.dp)
+                                    .size(48.dp)
                                     .shadow(6.dp, CircleShape),
                                 shape = CircleShape,
                                 color = Color.White
                             ) {
-                                androidx.compose.foundation.Image(
-                                    painter = androidx.compose.ui.res.painterResource(id = R.drawable.agri_logo),
+                                Image(
+                                    painter = painterResource(id = R.drawable.agri_logo),
                                     contentDescription = "AgriDevelop Logo",
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .padding(5.dp),
-                                    contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                                    contentScale = ContentScale.Fit
                                 )
                             }
 
@@ -490,35 +487,30 @@ fun FarmerDashboardContent(
                                     text = AppStrings.appTitle(currentLanguage),
                                     fontSize = 22.sp,
                                     fontWeight = FontWeight.ExtraBold,
-                                    color = Color.White,
-                                    letterSpacing = 0.5.sp
+                                    color = Color.White
                                 )
                                 Text(
                                     text = AppStrings.appSubtitle(currentLanguage),
                                     fontSize = 11.sp,
-                                    color = Color(0xFFC8E6C9),
+                                    color = AgriTheme.MintAccent,
                                     fontWeight = FontWeight.Medium
                                 )
                             }
                         }
 
+                        // Language Toggle Chip
                         Surface(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(20.dp))
                                 .clickable { onLanguageToggle() },
-                            color = Color.White.copy(alpha = 0.18f),
-                            border = androidx.compose.foundation.BorderStroke(1.2.dp, Color.White.copy(alpha = 0.45f))
+                            color = Color.White.copy(alpha = 0.20f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.40f))
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Language,
-                                    contentDescription = "Language",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(15.dp)
-                                )
+                                Icon(Icons.Default.Language, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
                                     text = if (isTelugu) "తెలుగు" else "ENG",
@@ -532,13 +524,14 @@ fun FarmerDashboardContent(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
+                    // Farmer Hero Card
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
                             .shadow(6.dp, RoundedCornerShape(22.dp)),
                         shape = RoundedCornerShape(22.dp),
                         color = Color.White.copy(alpha = 0.16f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.35f))
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.30f))
                     ) {
                         Row(
                             modifier = Modifier
@@ -551,15 +544,10 @@ fun FarmerDashboardContent(
                                     .size(52.dp)
                                     .clip(CircleShape)
                                     .background(Color.White)
-                                    .border(2.dp, Color(0xFFE8F5E9), CircleShape),
+                                    .border(2.dp, AgriTheme.MintAccent, CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Person,
-                                    contentDescription = null,
-                                    tint = brandForestGreen,
-                                    modifier = Modifier.size(30.dp)
-                                )
+                                Icon(Icons.Default.Person, contentDescription = null, tint = AgriTheme.EmeraldPrimary, modifier = Modifier.size(30.dp))
                             }
 
                             Spacer(modifier = Modifier.width(14.dp))
@@ -584,12 +572,12 @@ fun FarmerDashboardContent(
                 }
             }
 
-            // Services Grid Section with standard service cards
+            // Services Grid Section
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 18.dp)
-                    .padding(top = 22.dp, bottom = 30.dp)
+                    .padding(top = 22.dp, bottom = 28.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -601,7 +589,7 @@ fun FarmerDashboardContent(
                             modifier = Modifier
                                 .size(4.dp, 18.dp)
                                 .clip(RoundedCornerShape(2.dp)),
-                            color = brandForestGreen
+                            color = AgriTheme.EmeraldPrimary
                         ) {}
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
@@ -614,13 +602,13 @@ fun FarmerDashboardContent(
 
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = brandForestGreen.copy(alpha = 0.1f)
+                        color = AgriTheme.EmeraldPrimary.copy(alpha = 0.1f)
                     ) {
                         Text(
                             text = AppStrings.toolsCount(currentLanguage),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            color = brandForestGreen,
+                            color = AgriTheme.EmeraldPrimary,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
@@ -632,7 +620,7 @@ fun FarmerDashboardContent(
                     columns = GridCells.Fixed(2),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(680.dp),
+                        .height(515.dp),
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                     userScrollEnabled = false
@@ -642,16 +630,16 @@ fun FarmerDashboardContent(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(155.dp)
-                                .clickable { navController.navigate(item.destinationRoute) },
+                                .clickable { navController.navigate(item.destinationRoute) }
+                                .shadow(4.dp, RoundedCornerShape(22.dp)),
                             shape = RoundedCornerShape(22.dp),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
                             colors = CardDefaults.cardColors(containerColor = Color.White)
                         ) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .background(Brush.verticalGradient(item.gradientColors))
-                                    .border(1.2.dp, Color(0xFFE2EDE4), RoundedCornerShape(22.dp))
+                                    .border(1.dp, AgriTheme.BorderSubtle, RoundedCornerShape(22.dp))
                                     .padding(14.dp)
                             ) {
                                 Column(
@@ -730,11 +718,6 @@ fun FarmerProfileContent(
     onLogout: () -> Unit
 ) {
     val isTelugu = currentLanguage == AppLanguage.TELUGU
-    val primaryGreen = Color(0xFF0F5A2C)
-    val emeraldGreen = Color(0xFF1B8A46)
-    val sunnyAmber = Color(0xFFF59E0B)
-    val vibrantBlue = Color(0xFF2563EB)
-    val purpleAccent = Color(0xFF7C3AED)
     val crimsonRed = Color(0xFFDC2626)
 
     var notificationsEnabled by remember { mutableStateOf(true) }
@@ -755,18 +738,17 @@ fun FarmerProfileContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF4F7F4))
+            .background(AgriTheme.CanvasBg)
             .verticalScroll(rememberScrollState())
             .padding(bottom = 24.dp)
     ) {
+        // Gradient Hero Banner
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
-                    Brush.verticalGradient(
-                        colors = listOf(primaryGreen, emeraldGreen, Color(0xFF34D399))
-                    ),
-                    shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp)
+                    AgriTheme.SunriseGlow,
+                    shape = RoundedCornerShape(bottomStart = 34.dp, bottomEnd = 34.dp)
                 )
                 .padding(top = 28.dp, bottom = 36.dp, start = 20.dp, end = 20.dp),
             contentAlignment = Alignment.Center
@@ -786,16 +768,16 @@ fun FarmerProfileContent(
                         .size(92.dp)
                         .clip(CircleShape)
                         .background(Color.White)
-                        .border(3.dp, sunnyAmber, CircleShape),
+                        .border(3.dp, AgriTheme.GoldenHarvest, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    androidx.compose.foundation.Image(
-                        painter = androidx.compose.ui.res.painterResource(id = R.drawable.agri_logo),
+                    Image(
+                        painter = painterResource(id = R.drawable.agri_logo),
                         contentDescription = "Profile Emblem",
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(4.dp),
-                        contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                        contentScale = ContentScale.Fit
                     )
                 }
 
@@ -820,12 +802,7 @@ fun FarmerProfileContent(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Place,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(14.dp)
-                        )
+                        Icon(Icons.Default.Place, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "+91 $farmerMobile • ${AppStrings.region(currentLanguage, location)}",
@@ -834,17 +811,13 @@ fun FarmerProfileContent(
                             fontWeight = FontWeight.Medium
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = "Change Location",
-                            tint = Color.White.copy(alpha = 0.8f),
-                            modifier = Modifier.size(12.dp)
-                        )
+                        Icon(Icons.Default.Edit, contentDescription = null, tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(12.dp))
                     }
                 }
             }
         }
 
+        // Floating Statistics Row
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -856,21 +829,21 @@ fun FarmerProfileContent(
                 modifier = Modifier.weight(1f),
                 title = if (isTelugu) "భూమి విస్తీర్ణం" else "Land Size",
                 value = if (isTelugu) "$landSize ఎకరాలు" else "$landSize Acres",
-                badgeColor = sunnyAmber,
+                badgeColor = AgriTheme.GoldenHarvest,
                 icon = Icons.Default.Landscape
             )
             ProfileStatCard(
                 modifier = Modifier.weight(1f),
                 title = if (isTelugu) "ప్రధాన పంట" else "Main Crop",
                 value = if (isTelugu) "వరి / పత్తి" else "Paddy / Cotton",
-                badgeColor = emeraldGreen,
+                badgeColor = AgriTheme.EmeraldPrimary,
                 icon = Icons.Default.Agriculture
             )
             ProfileStatCard(
                 modifier = Modifier.weight(1f),
                 title = if (isTelugu) "రైతు హోదా" else "Status",
                 value = if (isTelugu) "ధృవీకరించబడింది" else "Verified",
-                badgeColor = vibrantBlue,
+                badgeColor = AgriTheme.RiverCyan,
                 icon = Icons.Default.Verified
             )
         }
@@ -879,7 +852,7 @@ fun FarmerProfileContent(
         ProfileCardWrapper {
             ProfileSwitchRow(
                 icon = Icons.Default.NotificationsActive,
-                iconColor = sunnyAmber,
+                iconColor = AgriTheme.GoldenHarvest,
                 title = if (isTelugu) "పంట & వాతావరణ సమాచారం" else "Crop & Weather Alerts",
                 subtitle = if (isTelugu) "రోజువారీ హెచ్చరికలు & ధరలు" else "Daily rain and market notifications",
                 checked = notificationsEnabled,
@@ -889,7 +862,7 @@ fun FarmerProfileContent(
 
             ProfileClickableRow(
                 icon = Icons.Default.Place,
-                iconColor = Color(0xFF0284C7),
+                iconColor = AgriTheme.RiverCyan,
                 title = if (isTelugu) "ప్రాంతం / జిల్లా మార్చండి" else "Change Region / District",
                 subtitle = AppStrings.region(currentLanguage, location),
                 trailingBadge = if (isTelugu) "మార్చు" else "Edit",
@@ -899,7 +872,7 @@ fun FarmerProfileContent(
 
             ProfileClickableRow(
                 icon = Icons.Default.Language,
-                iconColor = vibrantBlue,
+                iconColor = AgriTheme.RoyalPurple,
                 title = if (isTelugu) "యాప్ భాష" else "Language",
                 subtitle = if (isTelugu) "తెలుగు (మార్చడానికి నొక్కండి)" else "English (Tap to switch)",
                 trailingBadge = if (isTelugu) "ENG" else "తెలుగు",
@@ -913,22 +886,18 @@ fun FarmerProfileContent(
         ProfileCardWrapper {
             ProfileClickableRow(
                 icon = Icons.Default.Eco,
-                iconColor = emeraldGreen,
+                iconColor = AgriTheme.EmeraldPrimary,
                 title = if (isTelugu) "నా పంటలు & నేల వివరాలు" else "My Crops & Soil Details",
                 subtitle = AppStrings.farmerCategory(currentLanguage),
-                onClick = {
-                    navController.navigate("soil_list")
-                }
+                onClick = { navController.navigate("soil_list") }
             )
             HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
             ProfileClickableRow(
                 icon = Icons.Default.Storefront,
-                iconColor = sunnyAmber,
+                iconColor = AgriTheme.SunsetOrange,
                 title = if (isTelugu) "ప్రాంతీయ మార్కెట్లు" else "Saved Mandis & Yards",
                 subtitle = if (isTelugu) "మండి ధరలు (${location.substringBefore(",")})" else "Mandi prices for ${location.substringBefore(",")}",
-            onClick = {
-                navController.navigate("market_prices/$location")
-            }
+                onClick = { navController.navigate("market_prices/$location") }
             )
         }
 
@@ -938,7 +907,7 @@ fun FarmerProfileContent(
         ProfileCardWrapper {
             ProfileClickableRow(
                 icon = Icons.Default.SupportAgent,
-                iconColor = purpleAccent,
+                iconColor = AgriTheme.RoyalPurple,
                 title = if (isTelugu) "కిసాన్ హెల్ప్‌లైన్" else "Kisan Helpdesk",
                 subtitle = "1800-180-1551 (Toll-free)",
                 onClick = { }
@@ -987,15 +956,15 @@ fun FarmerProfileContent(
                             Icon(
                                 imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Default.Place,
                                 contentDescription = null,
-                                tint = if (isSelected) primaryGreen else Color.Gray,
+                                tint = if (isSelected) AgriTheme.EmeraldPrimary else Color.Gray,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
                                 text = if (isTelugu) "$telName (${engName.substringBefore(",")})" else engName.substringBefore(","),
-                            fontSize = 15.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isSelected) primaryGreen else Color(0xFF1E293B)
+                                fontSize = 15.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) AgriTheme.EmeraldPrimary else Color(0xFF1E293B)
                             )
                         }
                         HorizontalDivider(color = Color(0xFFF1F5F9))
@@ -1042,10 +1011,7 @@ fun FarmerProfileContent(
             },
             dismissButton = {
                 TextButton(onClick = { showLogoutDialog = false }) {
-                    Text(
-                        text = if (isTelugu) "రద్దు చేయి" else "Cancel",
-                        color = Color.Gray
-                    )
+                    Text(text = if (isTelugu) "రద్దు చేయి" else "Cancel", color = Color.Gray)
                 }
             }
         )
@@ -1068,10 +1034,10 @@ private fun ProfileCardWrapper(content: @Composable ColumnScope.() -> Unit) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 18.dp),
+            .padding(horizontal = 18.dp)
+            .shadow(4.dp, RoundedCornerShape(18.dp)),
         shape = RoundedCornerShape(18.dp),
-        color = Color.White,
-        shadowElevation = 2.dp
+        color = Color.White
     ) {
         Column(modifier = Modifier.padding(vertical = 4.dp)) {
             content()
@@ -1173,7 +1139,7 @@ private fun ProfileSwitchRow(
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
-                checkedTrackColor = Color(0xFF0F5A2C)
+                checkedTrackColor = AgriTheme.EmeraldPrimary
             )
         )
     }
@@ -1188,22 +1154,21 @@ private fun ProfileStatCard(
     icon: ImageVector
 ) {
     Surface(
-        modifier = modifier,
+        modifier = modifier.shadow(4.dp, RoundedCornerShape(14.dp)),
         shape = RoundedCornerShape(14.dp),
-        color = Color.White,
-        shadowElevation = 3.dp
+        color = Color.White
     ) {
         Column(
-            modifier = Modifier.padding(vertical = 10.dp, horizontal = 8.dp),
+            modifier = Modifier.padding(vertical = 12.dp, horizontal = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Surface(
-                modifier = Modifier.size(30.dp),
+                modifier = Modifier.size(32.dp),
                 shape = CircleShape,
                 color = badgeColor.copy(alpha = 0.12f)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(icon, contentDescription = null, tint = badgeColor, modifier = Modifier.size(16.dp))
+                    Icon(icon, contentDescription = null, tint = badgeColor, modifier = Modifier.size(18.dp))
                 }
             }
             Spacer(modifier = Modifier.height(4.dp))

@@ -58,6 +58,7 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     implementation("io.coil-kt:coil-compose:2.6.0")
     implementation("org.tensorflow:tensorflow-lite-task-vision:0.4.4")
+
     // Gemini Vision SDK
     implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
 
@@ -67,12 +68,7 @@ dependencies {
     implementation("androidx.browser:browser:1.8.0")
     implementation("com.pierfrancescosoffritti.androidyoutubeplayer:core:12.1.1")
 
-        // Google Gemini Generative AI SDK
-        implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
-
-        // Coil for Compose image loading
-        implementation("io.coil-kt:coil-compose:2.6.0")
-    implementation("io.coil-kt:coil-compose:2.6.0")
-
-
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
 }
