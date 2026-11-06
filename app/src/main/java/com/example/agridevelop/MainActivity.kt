@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -39,13 +40,15 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 
+
+
 enum class AppLanguage {
     ENGLISH, TELUGU
 }
 
 data class ChatMessage(
     val sender: String,
-    val text: String
+    val text: String,
 )
 
 object AppStrings {
@@ -101,13 +104,11 @@ class MainActivity : ComponentActivity() {
                     startDestination = "splash"
                 ) {
                     composable(route = "splash") {
-                        SplashScreen(
-                            onSplashFinished = {
-                                navController.navigate(startDestination) {
-                                    popUpTo("splash") { inclusive = true }
-                                }
+                        SplashScreen {
+                            navController.navigate(startDestination) {
+                                popUpTo("splash") { inclusive = true }
                             }
-                        )
+                        }
                     }
 
                     composable(route = "login") {
@@ -150,13 +151,13 @@ class MainActivity : ComponentActivity() {
                             phoneNumber = phone,
                             onBack = { navController.popBackStack() },
                             onVerificationSuccess = { verifiedPhone ->
-                                if (pass.isNotEmpty()) {
-                                    AuthRepository.register(
-                                        mobile = verifiedPhone,
-                                        name = name,
-                                        pass = pass
-                                    )
-                                }
+                                    if (pass.isNotEmpty()) {
+                                        AuthRepository.register(
+                                            mobile = verifiedPhone,
+                                            name = name,
+                                            pass = pass
+                                        )
+                                    }
                                 navController.navigate("dashboard/$name/$verifiedPhone/$land/$loc") {
                                     popUpTo("login") { inclusive = true }
                                 }
@@ -253,7 +254,7 @@ fun MainAppShell(
     currentLanguage: AppLanguage,
     onLanguageToggle: () -> Unit
 ) {
-    var selectedTab by remember { mutableStateOf(0) }
+    var selectedTab by remember { mutableIntStateOf(0) }
     var currentLocation by remember { mutableStateOf(initialLocation) }
 
     Scaffold(
@@ -720,7 +721,7 @@ fun FarmerProfileContent(
     val isTelugu = currentLanguage == AppLanguage.TELUGU
     val crimsonRed = Color(0xFFDC2626)
 
-    var notificationsEnabled by remember { mutableStateOf(true) }
+    var notificationsEnabled by remember { mutableStateOf(value = true) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showLocationDialog by remember { mutableStateOf(false) }
 
@@ -914,7 +915,7 @@ fun FarmerProfileContent(
             )
             HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
             ProfileClickableRow(
-                icon = Icons.Default.ExitToApp,
+                icon = Icons.AutoMirrored.Filled.ExitToApp,
                 iconColor = crimsonRed,
                 title = AppStrings.logout(currentLanguage),
                 subtitle = if (isTelugu) "ఖాతా నుండి నిష్క్రమించండి" else "Sign out of your profile",
@@ -998,10 +999,12 @@ fun FarmerProfileContent(
                 )
             },
             confirmButton = {
-                TextButton(onClick = {
-                    showLogoutDialog = false
-                    onLogout()
-                }) {
+                TextButton(
+                    onClick = {
+                        showLogoutDialog = false
+                        onLogout()
+                    },
+                ) {
                     Text(
                         text = if (isTelugu) "లాగౌట్" else "Log Out",
                         color = crimsonRed,
