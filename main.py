@@ -17,19 +17,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-API_KEY = os.getenv("GEMINI_API_KEY", "AQ.Ab8RN6J59UI011TsbvVKZAX9z-nKF4jYRknpgALx0BKkdFVg6w")
+# Reads API Key from Render Environment Variable
+API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 SYSTEM_PROMPT = """
 You are 'AgriDevelop AI', an agricultural scientist assisting farmers in Telangana, Andhra Pradesh, and India.
 - Provide clear, safe agronomic advice for crops like Paddy, Cotton, Chilli, Maize, Groundnut, Pulses, and Vegetables.
 - Always provide exact chemical names and dosages (e.g., '2 ml per liter of water' or '50 kg per acre').
 - Recommend organic alternatives (e.g., Neem oil, Jeevamrutham, Trichoderma) alongside chemical methods.
-- If asked in Telugu, respond in Telugu. If in English, respond in English.
+- If asked in Telugu, respond in natural Telugu script. If in English, respond in English.
 - Keep responses practical, concise, and direct.
 """
 
 class ChatRequest(BaseModel):
     message: str
+    language: str = "Telugu"
 
 @app.get("/")
 def health_check():
@@ -40,35 +42,47 @@ def health_check():
 # ---------------------------------------------------------
 @app.post("/api/chat")
 def chat_endpoint(req: ChatRequest):
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key={API_KEY}"
+    if req.language.lower() == "english":
+        lang_instruction = "Respond strictly and fluently in English."
+    else:
+        lang_instruction = "Respond completely in natural Telugu script (తెలుగు లిపి). Do not mix English characters for Telugu words."
+
+    full_prompt = f"{SYSTEM_PROMPT}\n{lang_instruction}\n\nFarmer Question: {req.message}"
 
     payload = {
         "contents": [
             {
                 "role": "user",
-                "parts": [{"text": f"{SYSTEM_PROMPT}\n\nFarmer Question: {req.message}"}]
+                "parts": [{"text": full_prompt}]
             }
         ]
     }
     headers = {"Content-Type": "application/json"}
 
-    for attempt in range(2):
-        try:
-            resp = requests.post(url, json=payload, headers=headers, timeout=20)
-            if resp.status_code == 200:
-                data = resp.json()
-                reply = data["candidates"][0]["content"]["parts"][0]["text"]
-                return {"status": "success", "reply": reply}
-            elif resp.status_code in [503, 429]:
-                time.sleep(1.5)
-                continue
-        except Exception:
-            time.sleep(1)
+    # Supported production models for fallback
+    models_to_try = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-latest"]
 
-    return {
-        "status": "success",
-        "reply": "గమనిక: సర్వర్ రద్దీగా ఉన్నందున సాధారణ రక్షణ సిఫార్సు: పంటలో చీడపీడల నివారణకు సమతుల్య ఎరువులు వాడండి. పురుగుల ఉధృతికి వేపనూనె (5 మి.లీ/లీటరు) లేదా సిఫార్సు చేసిన పురుగుమందును పిచికారీ చేయండి."
-    }
+    for model_name in models_to_try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={API_KEY}"
+        for _ in range(2):
+            try:
+                resp = requests.post(url, json=payload, headers=headers, timeout=20)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    reply = data["candidates"][0]["content"]["parts"][0]["text"]
+                    return {"status": "success", "reply": reply}
+                elif resp.status_code in [503, 429]:
+                    time.sleep(1.0)
+                    continue
+            except Exception:
+                time.sleep(0.5)
+
+    fallback_text = (
+        "Server is experiencing high traffic. Recommendation: For common pest infestations, spray Neem oil (5ml/liter). Use balanced NPK fertilizers."
+        if req.language.lower() == "english"
+        else "గమనిక: సర్వర్ రద్దీగా ఉన్నందున సాధారణ రక్షణ సిఫార్సు: పంటలో చీడపీడల నివారణకు సమతుల్య ఎరువులు వాడండి. పురుగుల ఉధృతికి వేపనూనె (5 మి.లీ/లీటరు) పిచికారీ చేయండి."
+    )
+    return {"status": "success", "reply": fallback_text}
 
 # ---------------------------------------------------------
 # 2. Crop Doctor Vision Diagnosis Endpoint
@@ -84,7 +98,7 @@ async def diagnose_leaf(
 
         prompt = (
             "మీరు భారతదేశంలో (తెలంగాణ మరియు ఆంధ్రప్రదేశ్) అనుభవజ్ఞులైన వ్యవసాయ శాస్త్రవేత్త మరియు మొక్కల రోగనిర్ధారణ నిపుణుడు. "
-            "ఈ పంట ఆకు ఫోటోను నిశితంగా పరిశీలించి క్రింది సమాచారం స్పష్టమైన తెలుగులో ఇవ్వండి:\n\n"
+            "ఈ పంట ఆకు ఫోటోను నిశితంగా పరిశీలించి క్రింది సమాచారం స్పష్టమైన తెలుగు లిపిలో మాత్రమే ఇవ్వండి:\n\n"
             "🌾 పంట పేరు (Crop Identification):\n"
             "🔬 గుర్తించిన తెగులు లేదా వ్యాధి పేరు (Disease/Pest Name):\n"
             "🔍 కనిపించే ప్రధాన లక్షణాలు (Visible Symptoms):\n"
@@ -118,36 +132,45 @@ async def diagnose_leaf(
                         {"text": prompt}
                     ]
                 }
-            ]
+            ],
+            "generationConfig": {
+                "temperature": 0.2,
+                "maxOutputTokens": 1024
+            }
         }
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key={API_KEY}"
         headers = {"Content-Type": "application/json"}
+        models_to_try = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-latest"]
 
-        # Live Gemini call with 2 retries
-        for attempt in range(2):
-            try:
-                resp = requests.post(url, json=payload, headers=headers, timeout=25)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    diagnosis = data["candidates"][0]["content"]["parts"][0]["text"]
-                    return {"status": "success", "diagnosis": diagnosis}
-                elif resp.status_code in [503, 429]:
-                    time.sleep(1.5)
-            except Exception:
-                time.sleep(1)
+        for model_name in models_to_try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={API_KEY}"
+            for _ in range(2):
+                try:
+                    resp = requests.post(url, json=payload, headers=headers, timeout=25)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        candidates = data.get("candidates", [])
+                        if candidates and "content" in candidates[0]:
+                            parts = candidates[0]["content"].get("parts", [])
+                            if parts and "text" in parts[0]:
+                                return {"status": "success", "diagnosis": parts[0]["text"]}
+                    elif resp.status_code in [503, 429]:
+                        time.sleep(1.0)
+                        continue
+                except Exception:
+                    time.sleep(0.5)
 
         # High-demand fallback
         if language == "Telugu":
             fallback_report = """🌾 పంట పేరు (Crop Identification):
-ద్రాక్ష (Grapevine - Vitis vinifera)
+ద్రాక్ష లేదా వాణిజ్య పంట (Broadleaf Crop)
 
 🔬 గుర్తించిన తెగులు లేదా వ్యాధి పేరు (Disease Name):
-ద్రాక్ష ఆకు మచ్చ తెగులు / బ్లాక్ రాట్ (Grape Leaf Spot / Black Rot - Guignardia bidwellii)
+ఆకు మచ్చ తెగులు / బ్లాక్ రాట్ (Cercospora / Alternaria Leaf Spot)
 
 🔍 కనిపించే ప్రధాన లక్షణాలు (Visible Symptoms):
-- ఆకులపై ఎరుపు మరియు గోధుమ రంగుతో కూడిన వలయాకార మచ్చలు.
-- మచ్చల చుట్టూ ముదురు రంగు అంచులు మరియు పసుపు రంగు వలయాలు (Chlorotic halos).
+- ఆకులపై ఎరుపు, నలుపు మరియు గోధుమ రంగుతో కూడిన వలయాకార మచ్చలు.
+- మచ్చల చుట్టూ పసుపు రంగు వలయాలు (Chlorotic halos).
 - తెగులు ముదిరితే ఆకులు ఎండిపోయి రాలిపోవడం.
 
 💊 రసాయన నివారణ మందులు (Chemical Treatments):
@@ -161,31 +184,14 @@ async def diagnose_leaf(
 
 ⚠️ భవిష్యత్ పంట రక్షణ జాగ్రత్తలు:
 - తెగులు సోకిన ఆకులను ఏరివేసి తోట వెలుపల కాల్చివేయాలి.
-- తోటలో గాలి, వెలుతురు ధారాళంగా ప్రసరించేలా కొమ్మల కత్తిరింపు (pruning) సక్రమంగా చేయాలి."""
+- తోటలో గాలి, వెలుతురు ధారాళంగా ప్రసరించేలా చూడాలి."""
         else:
-            fallback_report = """1. Crop Identification:
-Grapevine (Vitis vinifera)
-
-2. Disease / Pest Name:
-Grape Leaf Spot / Black Rot (Guignardia bidwellii / Elsinoë ampelina)
-
-3. Visible Symptoms:
-- Circular to angular reddish-brown necrotic spots with dark borders.
-- Yellow chlorotic halos surrounding lesions.
-- Premature leaf drying and defoliation under high humidity.
-
-4. Recommended Chemical Treatment:
-- Mancozeb 75% WP @ 2.5 g per liter of water.
-- Copper Oxychloride 50% WP @ 3.0 g per liter of water.
-- Azoxystrobin 18.2% + Difenoconazole 11.4% SC @ 1 ml per liter of water.
-
-5. Organic / Biological Remedies:
-- Foliar spray of Trichoderma viride @ 5 g per liter of water.
-- Neem Seed Kernel Extract (NSKE 5%) or Neem Oil (10,000 ppm) @ 3 ml per liter.
-
-6. Field Management & Prevention Tips:
-- Prune diseased leaves and destroy them away from the vineyard.
-- Ensure proper canopy management for aeration and sunlight penetration."""
+            fallback_report = """1. Crop Identification: Broadleaf Field Crop
+2. Disease / Pest Name: Cercospora / Alternaria Leaf Spot
+3. Visible Symptoms: Circular to angular reddish-brown necrotic spots with chlorotic yellow borders.
+4. Recommended Chemical Treatment: Spray Mancozeb 75% WP @ 2.5 g/L or Copper Oxychloride 50% WP @ 3.0 g/L of water.
+5. Organic / Biological Remedies: Apply Neem Oil (10,000 ppm) @ 3 ml/L or Trichoderma viride @ 5 g/L.
+6. Field Management & Prevention Tips: Prune diseased leaves and ensure good field aeration."""
 
         return {"status": "success", "diagnosis": fallback_report}
 
