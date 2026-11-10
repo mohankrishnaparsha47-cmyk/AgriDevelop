@@ -57,13 +57,18 @@ def chat_endpoint(req: ChatRequest):
             }
         ]
     }
-    headers = {"Content-Type": "application/json"}
 
-    # Supported production models for fallback
+    # Send key in headers to support both AIzaSy standard keys and AQ auth keys
+    headers = {
+        "Content-Type": "application/json",
+        "x-goog-api-key": API_KEY,
+        "Authorization": f"Bearer {API_KEY}"
+    }
+
     models_to_try = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-latest"]
 
     for model_name in models_to_try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={API_KEY}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
         for _ in range(2):
             try:
                 resp = requests.post(url, json=payload, headers=headers, timeout=20)
@@ -139,11 +144,17 @@ async def diagnose_leaf(
             }
         }
 
-        headers = {"Content-Type": "application/json"}
+        # Send key in headers to support both AIzaSy standard keys and AQ auth keys
+        headers = {
+            "Content-Type": "application/json",
+            "x-goog-api-key": API_KEY,
+            "Authorization": f"Bearer {API_KEY}"
+        }
+
         models_to_try = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-latest"]
 
         for model_name in models_to_try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={API_KEY}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
             for _ in range(2):
                 try:
                     resp = requests.post(url, json=payload, headers=headers, timeout=25)
