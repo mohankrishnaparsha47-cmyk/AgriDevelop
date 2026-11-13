@@ -39,17 +39,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.google.firebase.appcheck.FirebaseAppCheck
+import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
 
 
 
 enum class AppLanguage {
     ENGLISH, TELUGU
 }
-
-data class ChatMessage(
-    val sender: String,
-    val text: String,
-)
 
 object AppStrings {
     fun appTitle(lang: AppLanguage) = if (lang == AppLanguage.TELUGU) "అగ్రి డెవలప్" else "AgriDevelop"
@@ -58,7 +55,6 @@ object AppStrings {
     fun servicesHeader(lang: AppLanguage) = if (lang == AppLanguage.TELUGU) "వ్యవసాయ సేవలు" else "Agricultural Services"
     fun toolsCount(lang: AppLanguage) = if (lang == AppLanguage.TELUGU) "6 సేవలు" else "6 Tools"
     fun homeTab(lang: AppLanguage) = if (lang == AppLanguage.TELUGU) "హోమ్" else "Home"
-    fun aiChatTab(lang: AppLanguage) = if (lang == AppLanguage.TELUGU) "AI వాయిస్" else "AI Chat"
     fun profileTab(lang: AppLanguage) = if (lang == AppLanguage.TELUGU) "ప్రొఫైల్" else "Profile"
     fun region(lang: AppLanguage, loc: String = "Nalgonda, Telangana") =
         if (lang == AppLanguage.TELUGU) {
@@ -83,6 +79,11 @@ object AppStrings {
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        FirebaseAppCheck.getInstance()
+            .installAppCheckProviderFactory(
+                DebugAppCheckProviderFactory.getInstance(),
+            )
 
         AuthRepository.init(this)
         val defaultLocation = "Nalgonda, Telangana"
@@ -113,13 +114,12 @@ class MainActivity : ComponentActivity() {
 
                     composable(route = "login") {
                         LoginScreen(
-                            onNavigateToSignUp = { navController.navigate("signup") },
-                            onLoginSuccess = { name, mobile ->
-                                navController.navigate("dashboard/$name/$mobile/4.5/$defaultLocation") {
-                                    popUpTo("login") { inclusive = true }
-                                }
+                            onNavigateToSignUp = { navController.navigate("signup") }
+                        ) { name, mobile ->
+                            navController.navigate("dashboard/$name/$mobile/4.5/$defaultLocation") {
+                                popUpTo("login") { inclusive = true }
                             }
-                        )
+                        }
                     }
 
                     composable(route = "signup") {
@@ -280,45 +280,15 @@ fun MainAppShell(
                         indicatorColor = AgriTheme.MintBackground
                     )
                 )
-
-                // Center AI Voice Tab
+                // Profile
                 NavigationBarItem(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
                     icon = {
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(CircleShape)
-                                .background(if (selectedTab == 1) AgriTheme.EmeraldPrimary else Color.Transparent),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Filled.Mic,
-                                contentDescription = "AI Voice",
-                                tint = if (selectedTab == 1) Color.White else AgriTheme.EmeraldPrimary
-                            )
-                        }
+                        Icon(if (selectedTab == 1) Icons.Filled.Person else Icons.Outlined.Person, contentDescription = "Profile")
                     },
                     label = {
-                        Text(AppStrings.aiChatTab(currentLanguage), fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal)
-                    },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = AgriTheme.EmeraldPrimary,
-                        selectedTextColor = AgriTheme.EmeraldPrimary,
-                        indicatorColor = AgriTheme.MintBackground
-                    )
-                )
-
-                // Profile
-                NavigationBarItem(
-                    selected = selectedTab == 2,
-                    onClick = { selectedTab = 2 },
-                    icon = {
-                        Icon(if (selectedTab == 2) Icons.Filled.Person else Icons.Outlined.Person, contentDescription = "Profile")
-                    },
-                    label = {
-                        Text(AppStrings.profileTab(currentLanguage), fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal)
+                        Text(AppStrings.profileTab(currentLanguage), fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal)
                     },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = AgriTheme.EmeraldPrimary,
@@ -339,12 +309,7 @@ fun MainAppShell(
                     currentLanguage = currentLanguage,
                     onLanguageToggle = onLanguageToggle
                 )
-                1 -> AIChatScreen(
-                    currentLanguage = currentLanguage,
-                    onBack = { selectedTab = 0 },
-                    onNavigateToCropDoctor = { navController.navigate("ai_detection") }
-                )
-                2 -> FarmerProfileContent(
+                1 -> FarmerProfileContent(
                     navController = navController,
                     farmerName = farmerName,
                     farmerMobile = farmerMobile,
@@ -354,6 +319,7 @@ fun MainAppShell(
                     currentLanguage = currentLanguage,
                     onLanguageToggle = onLanguageToggle,
                     onLogout = {
+                        AuthRepository.logout()
                         navController.navigate("login") {
                             popUpTo(0) { inclusive = true }
                         }
@@ -722,8 +688,8 @@ fun FarmerProfileContent(
     val crimsonRed = Color(0xFFDC2626)
 
     var notificationsEnabled by remember { mutableStateOf(value = true) }
-    var showLogoutDialog by remember { mutableStateOf(false) }
-    var showLocationDialog by remember { mutableStateOf(false) }
+    var showLogoutDialog by remember { mutableStateOf(value = false) }
+    var showLocationDialog by remember { mutableStateOf(value = false) }
 
     val districts = listOf(
         "Nalgonda, Telangana" to "నల్గొండ",

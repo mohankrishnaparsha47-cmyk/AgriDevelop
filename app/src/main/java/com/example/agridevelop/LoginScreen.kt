@@ -1,5 +1,6 @@
 package com.example.agridevelop
 
+import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -33,6 +34,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
@@ -40,6 +42,7 @@ fun LoginScreen(
     onLoginSuccess: (name: String, mobile: String) -> Unit
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
     val primaryDarkGreen = Color(0xFF0F5A2C)
     val lightBorderColor = Color(0xFFE2E8F0)
@@ -50,13 +53,13 @@ fun LoginScreen(
     var mobileNumber by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
     ) {
-        // Bottom Farm Scenery with Soft Gradient Blend Overlay
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -70,7 +73,6 @@ fun LoginScreen(
                 contentScale = ContentScale.Crop
             )
 
-            // Smooth top-down gradient to seamlessly fade scenery into the white page background
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -88,14 +90,12 @@ fun LoginScreen(
             )
         }
 
-        // Scrollable Page Content
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 1. Top Curved Forest Green Header
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -147,7 +147,6 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 2. Larger, Prominent Floating Login Card
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -183,7 +182,7 @@ fun LoginScreen(
 
                     Spacer(modifier = Modifier.height(28.dp))
 
-                    // Mobile Number Input Row with +91 Country Badge
+                    // Mobile Field
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -242,7 +241,7 @@ fun LoginScreen(
 
                     Spacer(modifier = Modifier.height(18.dp))
 
-                    // Password Input Field
+                    // Password Field
                     OutlinedTextField(
                         value = password,
                         onValueChange = { password = it },
@@ -284,37 +283,64 @@ fun LoginScreen(
 
                     Spacer(modifier = Modifier.height(26.dp))
 
-                    // Full-width Solid Green Login Button
+                    // Strict Database Login Action
                     Button(
                         onClick = {
-                            if (mobileNumber.length < 10) {
+                            val trimmedMobile = mobileNumber.trim()
+                            val trimmedPassword = password.trim()
+
+                            if (trimmedMobile.length < 10) {
                                 Toast.makeText(context, "Please enter a valid 10-digit mobile number", Toast.LENGTH_SHORT).show()
                                 return@Button
                             }
-                            val validatedUser = AuthRepository.authenticate(mobileNumber, password)
-                            if (validatedUser != null) {
-                                onLoginSuccess(validatedUser.fullName, validatedUser.mobile)
-                            } else {
-                                Toast.makeText(context, "Invalid credentials. Please register or check details", Toast.LENGTH_SHORT).show()
+                            if (trimmedPassword.isEmpty()) {
+                                Toast.makeText(context, "Please enter your password", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+
+                            isLoading = true
+                            coroutineScope.launch {
+                                val validatedUser = AuthRepository.authenticateUser(context, trimmedMobile, trimmedPassword)
+                                isLoading = false
+
+                                if (validatedUser != null) {
+                                    // Save login session locally
+                                    val prefs = context.getSharedPreferences("AgriDevelopPrefs", Context.MODE_PRIVATE)
+                                    with(prefs.edit()) {
+                                        putBoolean("is_logged_in", true)
+                                        putString("logged_user_name", validatedUser.fullName)
+                                        putString("logged_user_mobile", validatedUser.mobile)
+                                        apply()
+                                    }
+
+                                    Toast.makeText(context, "స్వాగతం, ${validatedUser.fullName}!", Toast.LENGTH_SHORT).show()
+                                    onLoginSuccess(validatedUser.fullName, validatedUser.mobile)
+                                } else {
+                                    Toast.makeText(context, "Invalid credentials. Please register or check details", Toast.LENGTH_SHORT).show()
+                                }
                             }
                         },
+                        enabled = !isLoading,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(54.dp),
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = primaryDarkGreen)
                     ) {
-                        Text(
-                            text = "Login",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
+                        if (isLoading) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                        } else {
+                            Text(
+                                text = "Login",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // Bottom Sign Up Switch
                     Row(
                         modifier = Modifier.clickable { onNavigateToSignUp() },
                         verticalAlignment = Alignment.CenterVertically
@@ -325,7 +351,7 @@ fun LoginScreen(
                             color = subtextColor
                         )
                         Text(
-                            text = "Sign Up",
+                            text = "Register",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             color = primaryDarkGreen

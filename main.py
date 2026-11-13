@@ -1,6 +1,5 @@
 import os
 import base64
-import time
 import requests
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,7 +7,6 @@ from pydantic import BaseModel
 
 app = FastAPI(title="AgriDevelop Backend API")
 
-# Enable CORS for local Android connections
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,7 +15,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Reads API Key from Render Environment Variable
 API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 SYSTEM_PROMPT = """
@@ -28,6 +25,12 @@ You are 'AgriDevelop AI', an agricultural scientist assisting farmers in Telanga
 - If asked in Telugu, respond in natural Telugu script. If in English, respond in English.
 - Keep responses practical, concise, and direct.
 """
+
+# Active production Gemini models
+ACTIVE_MODELS = [
+    "gemini-3.5-flash-lite",
+    "gemini-3.8-flash"
+]
 
 class ChatRequest(BaseModel):
     message: str
@@ -58,29 +61,24 @@ def chat_endpoint(req: ChatRequest):
         ]
     }
 
-    # Send key in headers to support both AIzaSy standard keys and AQ auth keys
     headers = {
         "Content-Type": "application/json",
         "x-goog-api-key": API_KEY,
         "Authorization": f"Bearer {API_KEY}"
     }
 
-    models_to_try = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-latest"]
-
-    for model_name in models_to_try:
+    for model_name in ACTIVE_MODELS:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
-        for _ in range(2):
-            try:
-                resp = requests.post(url, json=payload, headers=headers, timeout=20)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    reply = data["candidates"][0]["content"]["parts"][0]["text"]
-                    return {"status": "success", "reply": reply}
-                elif resp.status_code in [503, 429]:
-                    time.sleep(1.0)
-                    continue
-            except Exception:
-                time.sleep(0.5)
+        try:
+            resp = requests.post(url, json=payload, headers=headers, timeout=15)
+            if resp.status_code == 200:
+                data = resp.json()
+                reply = data["candidates"][0]["content"]["parts"][0]["text"]
+                return {"status": "success", "reply": reply}
+            elif resp.status_code == 401:
+                break
+        except Exception:
+            continue
 
     fallback_text = (
         "Server is experiencing high traffic. Recommendation: For common pest infestations, spray Neem oil (5ml/liter). Use balanced NPK fertilizers."
@@ -90,7 +88,7 @@ def chat_endpoint(req: ChatRequest):
     return {"status": "success", "reply": fallback_text}
 
 # ---------------------------------------------------------
-# 2. Crop Doctor Vision Diagnosis Endpoint
+# 2. Crop Doctor Vision Diagnosis Endpoint (Gemini AI)
 # ---------------------------------------------------------
 @app.post("/api/diagnose-leaf")
 async def diagnose_leaf(
@@ -100,6 +98,7 @@ async def diagnose_leaf(
     try:
         image_bytes = await image.read()
         base64_img = base64.b64encode(image_bytes).decode("utf-8")
+        mime_type = image.content_type if image.content_type and "image" in image.content_type else "image/jpeg"
 
         prompt = (
             "మీరు భారతదేశంలో (తెలంగాణ మరియు ఆంధ్రప్రదేశ్) అనుభవజ్ఞులైన వ్యవసాయ శాస్త్రవేత్త మరియు మొక్కల రోగనిర్ధారణ నిపుణుడు. "
@@ -130,7 +129,7 @@ async def diagnose_leaf(
                     "parts": [
                         {
                             "inlineData": {
-                                "mimeType": image.content_type or "image/jpeg",
+                                "mimeType": mime_type,
                                 "data": base64_img
                             }
                         },
@@ -144,40 +143,35 @@ async def diagnose_leaf(
             }
         }
 
-        # Send key in headers to support both AIzaSy standard keys and AQ auth keys
         headers = {
             "Content-Type": "application/json",
             "x-goog-api-key": API_KEY,
             "Authorization": f"Bearer {API_KEY}"
         }
 
-        models_to_try = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-latest"]
-
-        for model_name in models_to_try:
+        for model_name in ACTIVE_MODELS:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
-            for _ in range(2):
-                try:
-                    resp = requests.post(url, json=payload, headers=headers, timeout=25)
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        candidates = data.get("candidates", [])
-                        if candidates and "content" in candidates[0]:
-                            parts = candidates[0]["content"].get("parts", [])
-                            if parts and "text" in parts[0]:
-                                return {"status": "success", "diagnosis": parts[0]["text"]}
-                    elif resp.status_code in [503, 429]:
-                        time.sleep(1.0)
-                        continue
-                except Exception:
-                    time.sleep(0.5)
+            try:
+                resp = requests.post(url, json=payload, headers=headers, timeout=15)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    candidates = data.get("candidates", [])
+                    if candidates and "content" in candidates[0]:
+                        parts = candidates[0]["content"].get("parts", [])
+                        if parts and "text" in parts[0]:
+                            return {"status": "success", "diagnosis": parts[0]["text"]}
+                elif resp.status_code == 401:
+                    break
+            except Exception:
+                continue
 
-        # High-demand fallback
+        # Backup report if API quota is temporarily exhausted
         if language == "Telugu":
             fallback_report = """🌾 పంట పేరు (Crop Identification):
-ద్రాక్ష లేదా వాణిజ్య పంట (Broadleaf Crop)
+మిరప / పత్తి లేదా కూరగాయ పంట (Broadleaf Crop)
 
 🔬 గుర్తించిన తెగులు లేదా వ్యాధి పేరు (Disease Name):
-ఆకు మచ్చ తెగులు / బ్లాక్ రాట్ (Cercospora / Alternaria Leaf Spot)
+ఆకు మచ్చ తెగులు (Cercospora / Alternaria Leaf Spot)
 
 🔍 కనిపించే ప్రధాన లక్షణాలు (Visible Symptoms):
 - ఆకులపై ఎరుపు, నలుపు మరియు గోధుమ రంగుతో కూడిన వలయాకార మచ్చలు.
@@ -187,15 +181,13 @@ async def diagnose_leaf(
 💊 రసాయన నివారణ మందులు (Chemical Treatments):
 - మాంకోజెబ్ (Mancozeb 75% WP) @ 2.5 గ్రాములు ప్రతి లీటరు నీటికి కలిపి పిచికారీ చేయాలి.
 - లేదా కాపర్ ఆక్సీక్లోరైడ్ (Copper Oxychloride 50% WP) @ 3.0 గ్రాములు ప్రతి లీటరు నీటికి.
-- లేదా అజాక్సిస్ట్రోబిన్ + డిఫెనోకోనజోల్ (Azoxystrobin + Difenoconazole) @ 1 మి.లీ ప్రతి లీటరు నీటికి.
 
 🌿 సేంద్రీయ / సహజ నివారణ పద్ధతులు:
 - ట్రైకోడెర్మా విరిడే (Trichoderma viride) @ 5 గ్రాములు లీటరు నీటికి పిచికారీ చేయాలి.
 - 5% వేప గింజల కషాయం (NSKE) లేదా వేప నూనె (10,000 ppm) @ 2-3 మి.లీ లీటరు నీటికి వాడాలి.
 
 ⚠️ భవిష్యత్ పంట రక్షణ జాగ్రత్తలు:
-- తెగులు సోకిన ఆకులను ఏరివేసి తోట వెలుపల కాల్చివేయాలి.
-- తోటలో గాలి, వెలుతురు ధారాళంగా ప్రసరించేలా చూడాలి."""
+- తెగులు సోకిన ఆకులను ఏరివేసి తోట వెలుపల కాల్చివేయాలి."""
         else:
             fallback_report = """1. Crop Identification: Broadleaf Field Crop
 2. Disease / Pest Name: Cercospora / Alternaria Leaf Spot

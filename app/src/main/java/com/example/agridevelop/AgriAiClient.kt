@@ -1,156 +1,134 @@
 package com.example.agridevelop
+import com.google.firebase.ai.type.RequestOptions
 
-import android.graphics.Bitmap
+import com.google.firebase.Firebase
+import android.util.Log
+import com.google.firebase.ai.ai
+import com.google.firebase.ai.type.GenerativeBackend
+
+import com.google.firebase.ai.type.RequestTimeoutException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.MultipartBody
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import org.json.JSONObject
-import java.io.ByteArrayOutputStream
-import java.util.concurrent.TimeUnit
-
-data class MandiPrice(
-    val cropName: String,
-    val market: String,
-    val minPrice: String,
-    val modalPrice: String,
-    val maxPrice: String,
-    val unit: String,
-    val trend: String
-)
 
 object AgriAiClient {
-    // Configured for your laptop IP address
-    private const val BASE_URL = "http://10.177.4.50:8000"
 
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(60, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .writeTimeout(60, TimeUnit.SECONDS)
-        .build()
+    private const val TAG = "AgriDevelopAI"
+    private const val MAX_RETRIES = 2
+    private const val INITIAL_RETRY_DELAY_MS = 1000L
 
-    /**
-     * Text / Voice Chat via FastAPI backend
-     */
-    suspend fun getResponse(userMessage: String): String = withContext(Dispatchers.IO) {
-        try {
-            val jsonPayload = JSONObject().apply {
-                put("message", userMessage)
-            }
+    private val model = Firebase.ai(
+        backend = GenerativeBackend.googleAI()
+    ).generativeModel(
+        modelName = "gemini-3.8-flash",
+        requestOptions = RequestOptions(
+            timeoutInMillis = 180_000L
+        )
+    )
 
-            val requestBody = jsonPayload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
+    suspend fun getResponse(
+        query: String,
+        language: String
+    ): String = withContext(Dispatchers.IO) {
 
-            val request = Request.Builder()
-                .url("$BASE_URL/api/chat")
-                .post(requestBody)
-                .build()
+        val prompt = """
+            You are AgriDevelop AI, an agricultural assistant
+            designed to help farmers.
 
-            val response = client.newCall(request).execute()
-            val body = response.body?.string().orEmpty()
+            Your responsibilities:
+            1. Explain crop cultivation methods.
+            2. Identify common crop diseases and their symptoms.
+            3. Explain soil types and suitable crops.
+            4. Give responsible fertilizer guidance.
+            5. Explain pest prevention methods.
+            6. Provide irrigation and farming tips.
+            7. Explain seasonal crop management.
 
-            if (response.isSuccessful) {
-                val json = JSONObject(body)
-                return@withContext json.optString("reply", "No response received.")
-            } else {
-                return@withContext "Server error (${response.code}): $body"
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            return@withContext "Connection error: ${e.localizedMessage ?: "Unable to reach server"}"
-        }
-    }
+            IMPORTANT RULES:
 
-    /**
-     * Crop Doctor Vision Diagnosis: Pre-scales image to ~1024px to ensure fast upload
-     */
-    suspend fun analyzeCropLeaf(bitmap: Bitmap, isTelugu: Boolean): String = withContext(Dispatchers.IO) {
-        try {
-            val maxDimension = 1024
-            val width = bitmap.width
-            val height = bitmap.height
-            val scaledBitmap = if (width > maxDimension || height > maxDimension) {
-                val ratio = width.toFloat() / height.toFloat()
-                val targetW = if (ratio > 1) maxDimension else (maxDimension * ratio).toInt()
-                val targetH = if (ratio > 1) (maxDimension / ratio).toInt() else maxDimension
-                Bitmap.createScaledBitmap(bitmap, targetW, targetH, true)
-            } else {
-                bitmap
-            }
+            - Always answer in $language language.
+            - Use simple language that farmers can understand.
+            - Give clear, practical, step-by-step explanations.
+            - Keep answers relevant to agriculture.
+            - Use headings and bullet points when useful.
+            - Never invent agricultural facts.
+            - Do not guess fertilizer or pesticide quantities.
+            - Explain that dosage depends on soil testing,
+              crop stage and product instructions.
+            - If information is uncertain, clearly mention it.
+            - If a question is unrelated to agriculture,
+              politely explain that you are an agricultural assistant.
 
-            val outputStream = ByteArrayOutputStream()
-            scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream)
-            val imageBytes = outputStream.toByteArray()
+            User Question:
+            $query
 
-            val requestBody = MultipartBody.Builder()
-                .setType(MultipartBody.FORM)
-                .addFormDataPart(
-                    "image",
-                    "leaf.jpg",
-                    imageBytes.toRequestBody("image/jpeg".toMediaType())
-                )
-                .addFormDataPart("language", if (isTelugu) "Telugu" else "English")
-                .build()
+            Give a helpful and accurate answer.
+        """.trimIndent()
 
-            val request = Request.Builder()
-                .url("$BASE_URL/api/diagnose-leaf")
-                .post(requestBody)
-                .build()
+        var attempt = 0
+        var currentDelay = INITIAL_RETRY_DELAY_MS
+        var lastException: Exception? = null
 
-            val response = client.newCall(request).execute()
-            val body = response.body?.string().orEmpty()
+        while (attempt <= MAX_RETRIES) {
+            attempt++
+            try {
+                Log.d(TAG, "Sending question (attempt $attempt): $query")
 
-            if (response.isSuccessful) {
-                val json = JSONObject(body)
-                return@withContext json.optString("diagnosis", "No diagnosis returned.")
-            } else {
-                return@withContext "Server error (${response.code}): $body"
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            return@withContext "Connection error: ${e.localizedMessage ?: "Unable to reach server"}"
-        }
-    }
+                val response = model.generateContent(prompt)
+                val answer = response.text?.trim()
 
-    /**
-     * Retrieves Mandi prices for the registered district
-     */
-    suspend fun getDistrictMandiPrices(district: String): List<MandiPrice> = withContext(Dispatchers.IO) {
-        val resultList = mutableListOf<MandiPrice>()
-        try {
-            val request = Request.Builder()
-                .url("$BASE_URL/api/mandi-prices?district=$district")
-                .get()
-                .build()
-
-            val response = client.newCall(request).execute()
-            val body = response.body?.string().orEmpty()
-
-            if (response.isSuccessful) {
-                val json = JSONObject(body)
-                val pricesArray = json.optJSONArray("prices")
-                if (pricesArray != null) {
-                    for (i in 0 until pricesArray.length()) {
-                        val item = pricesArray.getJSONObject(i)
-                        resultList.add(
-                            MandiPrice(
-                                cropName = item.optString("crop_name"),
-                                market = item.optString("market"),
-                                minPrice = item.optString("min_price"),
-                                modalPrice = item.optString("modal_price"),
-                                maxPrice = item.optString("max_price"),
-                                unit = item.optString("unit"),
-                                trend = item.optString("trend")
-                            )
-                        )
+                if (answer.isNullOrBlank()) {
+                    return@withContext if (language.equals("Telugu", true)) {
+                        "క్షమించండి, సమాధానం అందుబాటులో లేదు. మళ్లీ ప్రయత్నించండి."
+                    } else {
+                        "Sorry, no response was generated. Please try again."
                     }
+                } else {
+                    Log.d(TAG, "AI response received")
+                    return@withContext answer
+                }
+            } catch (e: RequestTimeoutException) {
+                lastException = e
+                Log.w(TAG, "Request timed out on attempt $attempt", e)
+                if (attempt <= MAX_RETRIES) {
+                    delay(currentDelay)
+                    currentDelay *= 2
+                }
+            } catch (e: Exception) {
+                lastException = e
+                if (attempt <= MAX_RETRIES && isTransientError(e)) {
+                    Log.w(TAG, "Transient error on attempt $attempt: ${e.message}", e)
+                    delay(currentDelay)
+                    currentDelay *= 2
+                } else {
+                    Log.e(TAG, "Gemini request failed", e)
+                    throw e
                 }
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
-        return@withContext resultList
+
+        if (lastException is RequestTimeoutException) {
+            Log.e(TAG, "Request timed out after retries", lastException)
+            if (language.equals("Telugu", true)) {
+                "AI స్పందించడానికి ఎక్కువ సమయం తీసుకుంటోంది. మళ్లీ ప్రయత్నించండి."
+            } else {
+                "AI request timed out. Please try again."
+            }
+        } else {
+            throw lastException ?: Exception("Unknown error during AI response generation")
+        }
     }
-}
+    private fun isTransientError(e: Exception): Boolean {
+        val msg = e.message?.lowercase() ?: ""
+
+        return msg.contains("timeout") ||
+                msg.contains("unavailable") ||
+                msg.contains("connection") ||
+                msg.contains("high demand") ||
+                msg.contains("resource exhausted") ||
+                msg.contains("429") ||
+                msg.contains("503") ||
+                msg.contains("overloaded")
+    }
+
+    }

@@ -44,6 +44,7 @@ fun RegisterScreen(
     onNavigateToOtp: (name: String, mobile: String, pass: String, land: String, loc: String) -> Unit
 ) {
     val context = LocalContext.current
+    val dbHelper = remember { AgriDatabaseHelper(context) }
 
     val primaryDarkGreen = Color(0xFF0F5A2C)
     val lightBorderColor = Color(0xFFE2E8F0)
@@ -75,7 +76,6 @@ fun RegisterScreen(
             .fillMaxSize()
             .background(Color.White)
     ) {
-        // Bottom Farm Scenery with Soft Gradient Blend Overlay
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -106,14 +106,12 @@ fun RegisterScreen(
             )
         }
 
-        // Scrollable Page Content
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Top Curved Forest Green Header
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -165,7 +163,6 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Main Registration Card
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -201,7 +198,7 @@ fun RegisterScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // 1. Full Name Field
+                    // Full Name Field
                     OutlinedTextField(
                         value = fullName,
                         onValueChange = { fullName = it },
@@ -231,7 +228,7 @@ fun RegisterScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // 2. Mobile Number with +91 Country Badge
+                    // Mobile Field
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -290,7 +287,7 @@ fun RegisterScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // 3. Password Field
+                    // Password Field
                     OutlinedTextField(
                         value = password,
                         onValueChange = { password = it },
@@ -332,7 +329,7 @@ fun RegisterScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // 4. Land Size with Clear "Acres" Unit Tag
+                    // Land Size Field
                     OutlinedTextField(
                         value = landSize,
                         onValueChange = { landSize = it },
@@ -378,7 +375,7 @@ fun RegisterScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // 5. District Selection Box with "District" label inside
+                    // District Selection
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -426,26 +423,50 @@ fun RegisterScreen(
 
                     Spacer(modifier = Modifier.height(26.dp))
 
-                    // Full-width Solid Green Register Button
+                    // Save directly into SQLite Table
                     Button(
                         onClick = {
-                            if (fullName.trim().isEmpty()) {
+                            val trimmedName = fullName.trim()
+                            val trimmedMobile = mobileNumber.trim()
+                            val trimmedPass = password.trim()
+
+                            if (trimmedName.isEmpty()) {
                                 Toast.makeText(context, "Please enter your name", Toast.LENGTH_SHORT).show()
                                 return@Button
                             }
-                            if (mobileNumber.length < 10) {
+                            if (trimmedMobile.length != 10) {
                                 Toast.makeText(context, "Please enter a valid 10-digit mobile number", Toast.LENGTH_SHORT).show()
                                 return@Button
                             }
-                            if (password.length < 4) {
+                            if (trimmedPass.length < 4) {
                                 Toast.makeText(context, "Password must be at least 4 characters", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+
+                            // Prevent duplicate registration
+                            if (dbHelper.getUserName(trimmedMobile) != null) {
+                                Toast.makeText(context, "Mobile number already registered! Please login.", Toast.LENGTH_LONG).show()
+                                onNavigateToLogin()
                                 return@Button
                             }
 
                             val validLand = if (landSize.trim().isEmpty()) "4.5" else landSize.trim()
                             val validLoc = if (selectedLocation.trim().isEmpty()) "Nalgonda, Telangana" else selectedLocation.trim()
 
-                            onNavigateToOtp(fullName.trim(), mobileNumber.trim(), password, validLand, validLoc)
+                            val isSaved = dbHelper.registerFarmer(
+                                mobile = trimmedMobile,
+                                name = trimmedName,
+                                pass = trimmedPass,
+                                landSize = validLand,
+                                location = validLoc
+                            )
+
+                            if (isSaved) {
+                                Toast.makeText(context, "నమోదు విజయవంతమైంది! (Registered Successfully)", Toast.LENGTH_LONG).show()
+                                onNavigateToLogin()
+                            } else {
+                                Toast.makeText(context, "Registration failed. Try again.", Toast.LENGTH_SHORT).show()
+                            }
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -463,7 +484,6 @@ fun RegisterScreen(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // Bottom Sign In Navigation Link
                     Row(
                         modifier = Modifier.clickable { onNavigateToLogin() },
                         verticalAlignment = Alignment.CenterVertically
@@ -486,7 +506,6 @@ fun RegisterScreen(
             Spacer(modifier = Modifier.height(130.dp))
         }
 
-        // Choice Dialog: Opens only on click
         if (showDistrictDialog) {
             AlertDialog(
                 onDismissRequest = { showDistrictDialog = false },

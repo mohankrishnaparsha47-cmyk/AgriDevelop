@@ -1,33 +1,67 @@
 package com.example.agridevelop
 
+import android.util.Log
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
-import android.util.Log
 
 class SoilFirebaseRepository {
-    private val firestoreDBInstance = FirebaseFirestore.getInstance()
 
-    suspend fun getCropsBySoilType(selectedSoil: String): List<String> {
-        Log.d("SoilFirebaseRepository", "Fetching crop recommendations for soilType: $selectedSoil")
+    private val firestoreDBInstance =
+        FirebaseFirestore.getInstance()
+
+    suspend fun getCropsBySoilType(
+        selectedSoil: String
+    ): List<String> {
+
         return try {
-            val databaseSnapshot = firestoreDBInstance.collection("crop_recommendations")
-                .whereEqualTo("soilType", selectedSoil)
+
+            Log.d(
+                "SoilFirebaseRepository",
+                "Fetching soil: $selectedSoil"
+            )
+
+            val snapshot = firestoreDBInstance
+                .collection("soil_details")
+                .whereEqualTo("soilName", selectedSoil)
                 .get()
                 .await()
 
-            if (!databaseSnapshot.isEmpty) {
-                val document = databaseSnapshot.documents.firstOrNull()
-                // Direct parsing conversion to prevent java class constructor exceptions
-                val cropsArray = document?.get("suggestedCropsList") as? List<String>
-                val result = cropsArray ?: emptyList()
-                Log.d("SoilFirebaseRepository", "Successfully fetched ${result.size} crops for soil: $selectedSoil")
+            val document = snapshot.documents.firstOrNull()
+
+            if (document != null) {
+
+                val crops = document.get("suitableCrops")
+                        as? List<*>
+
+                val result = crops
+                    ?.filterIsInstance<String>()
+                    ?: emptyList()
+
+                Log.d(
+                    "SoilFirebaseRepository",
+                    "Fetched crops: $result"
+                )
+
                 result
+
             } else {
-                Log.w("SoilFirebaseRepository", "No crop recommendations found for soil: $selectedSoil")
+
+                Log.w(
+                    "SoilFirebaseRepository",
+                    "Soil not found: $selectedSoil"
+                )
+
                 emptyList()
             }
+
         } catch (e: Exception) {
-            Log.e("SoilFirebaseRepository", "Firestore fetch failed: ${e.message}", e)
+
+            Log.e(
+                "SoilFirebaseRepository",
+                "Firestore error",
+                e
+            )
+
             emptyList()
         }
     }

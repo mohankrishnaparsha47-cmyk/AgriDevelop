@@ -1,10 +1,14 @@
 package com.example.agridevelop
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import android.widget.Toast
+import androidx.core.content.ContextCompat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -73,18 +77,38 @@ fun AIDetectionScreen(
         }
     }
 
+    // Camera Permission Launcher
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            cameraLauncher.launch(null)
+        } else {
+            Toast.makeText(
+                context,
+                "Camera permission required",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
     fun analyzeCropImage(bitmap: Bitmap) {
         isAnalyzing = true
         diagnosisResult = null
 
         coroutineScope.launch {
             try {
-                // Uses the robust, model-discovering AgriAiClient network client
-                val isTelugu = selectedLanguage == "Telugu"
-                val result = AgriAiClient.analyzeCropLeaf(bitmap, isTelugu)
+                val result =
+                    DiseaseDetectionRepository.detectDisease(
+                        bitmap,
+                        selectedLanguage
+                    )
+
                 diagnosisResult = result
+
             } catch (e: Exception) {
-                diagnosisResult = "Error connecting to AI diagnostic server: ${e.localizedMessage ?: "Network error"}"
+                diagnosisResult =
+                    "AI Error: ${e.localizedMessage ?: "Please try again"}"
             } finally {
                 isAnalyzing = false
             }
@@ -219,7 +243,17 @@ fun AIDetectionScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 OutlinedButton(
-                    onClick = { cameraLauncher.launch(null) },
+                    onClick = {
+                        if (ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.CAMERA
+                            ) == PackageManager.PERMISSION_GRANTED
+                        ) {
+                            cameraLauncher.launch(null)
+                        } else {
+                            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                        }
+                    },
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp),

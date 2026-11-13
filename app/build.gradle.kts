@@ -20,11 +20,10 @@ android {
 
     buildTypes {
         release {
-            optimization {
-                enable = false
+
+                isMinifyEnabled = false
             }
         }
-    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -60,10 +59,9 @@ dependencies {
     implementation("org.tensorflow:tensorflow-lite-task-vision:0.4.4")
 
     // Gemini Vision SDK
-    implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
 
     // Firebase BoM
-    implementation(platform("com.google.firebase:firebase-bom:34.5.0"))
+    implementation(platform("com.google.firebase:firebase-bom:35.1.0"))
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
     implementation("androidx.browser:browser:1.8.0")
@@ -73,4 +71,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+    implementation("com.google.firebase:firebase-ai")
+    implementation("com.google.firebase:firebase-appcheck")
+    implementation("com.google.firebase:firebase-appcheck-debug")
 }
