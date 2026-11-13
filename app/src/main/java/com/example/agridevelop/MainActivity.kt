@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -41,8 +42,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
-
-
 
 enum class AppLanguage {
     ENGLISH, TELUGU
@@ -85,10 +84,11 @@ class MainActivity : ComponentActivity() {
                 DebugAppCheckProviderFactory.getInstance(),
             )
 
-        AuthRepository.init(this)
         val defaultLocation = "Nalgonda, Telangana"
+        val dbHelper = AgriDatabaseHelper(this)
 
-        val activeUser = AuthRepository.getSavedSession()
+        // Check active session from SQLite database
+        val activeUser = AuthRepository.getLoggedInFarmer(this)
         val startDestination = if (activeUser != null) {
             "dashboard/${activeUser.fullName}/${activeUser.mobile}/4.5/$defaultLocation"
         } else {
@@ -96,6 +96,11 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
+            // Wake up Render backend immediately on app launch
+            LaunchedEffect(Unit) {
+                DiseaseDetectionRepository.wakeUpServer()
+            }
+
             MaterialTheme {
                 val navController = rememberNavController()
                 var currentLanguage by remember { mutableStateOf(AppLanguage.ENGLISH) }
@@ -151,13 +156,16 @@ class MainActivity : ComponentActivity() {
                             phoneNumber = phone,
                             onBack = { navController.popBackStack() },
                             onVerificationSuccess = { verifiedPhone ->
-                                    if (pass.isNotEmpty()) {
-                                        AuthRepository.register(
-                                            mobile = verifiedPhone,
-                                            name = name,
-                                            pass = pass
-                                        )
-                                    }
+                                if (pass.isNotEmpty()) {
+                                    dbHelper.registerFarmer(
+                                        mobile = verifiedPhone,
+                                        name = name,
+                                        pass = pass,
+                                        landSize = land,
+                                        location = loc
+                                    )
+                                    dbHelper.saveActiveSession(verifiedPhone, name)
+                                }
                                 navController.navigate("dashboard/$name/$verifiedPhone/$land/$loc") {
                                     popUpTo("login") { inclusive = true }
                                 }
@@ -254,6 +262,7 @@ fun MainAppShell(
     currentLanguage: AppLanguage,
     onLanguageToggle: () -> Unit
 ) {
+    val context = LocalContext.current
     var selectedTab by remember { mutableIntStateOf(0) }
     var currentLocation by remember { mutableStateOf(initialLocation) }
 
@@ -264,7 +273,6 @@ fun MainAppShell(
                 tonalElevation = 10.dp,
                 modifier = Modifier.shadow(12.dp)
             ) {
-                // Home
                 NavigationBarItem(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
@@ -280,7 +288,6 @@ fun MainAppShell(
                         indicatorColor = AgriTheme.MintBackground
                     )
                 )
-                // Profile
                 NavigationBarItem(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
@@ -319,7 +326,7 @@ fun MainAppShell(
                     currentLanguage = currentLanguage,
                     onLanguageToggle = onLanguageToggle,
                     onLogout = {
-                        AuthRepository.logout()
+                        AuthRepository.logout(context)
                         navController.navigate("login") {
                             popUpTo(0) { inclusive = true }
                         }
@@ -342,7 +349,6 @@ fun FarmerDashboardContent(
     val isTelugu = currentLanguage == AppLanguage.TELUGU
     val districtShort = location.substringBefore(",")
 
-    // Colorful, contrasting tile configurations
     val services = remember(currentLanguage, location) {
         listOf(
             DashboardService(
@@ -412,7 +418,6 @@ fun FarmerDashboardContent(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
         ) {
-            // Enhanced Top Green Gradient Header
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -465,7 +470,6 @@ fun FarmerDashboardContent(
                             }
                         }
 
-                        // Language Toggle Chip
                         Surface(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(20.dp))
@@ -491,7 +495,6 @@ fun FarmerDashboardContent(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // Farmer Hero Card
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -528,7 +531,7 @@ fun FarmerDashboardContent(
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = "+91 $farmerMobile • ${AppStrings.region(currentLanguage, location)}",
+                                    text = "+91 $farmerMobile\n${AppStrings.region(currentLanguage, location)}",
                                     fontSize = 12.sp,
                                     color = Color(0xFFE8F5E9),
                                     fontWeight = FontWeight.Medium
@@ -539,7 +542,6 @@ fun FarmerDashboardContent(
                 }
             }
 
-            // Services Grid Section
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -709,7 +711,6 @@ fun FarmerProfileContent(
             .verticalScroll(rememberScrollState())
             .padding(bottom = 24.dp)
     ) {
-        // Gradient Hero Banner
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -772,7 +773,7 @@ fun FarmerProfileContent(
                         Icon(Icons.Default.Place, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "+91 $farmerMobile • ${AppStrings.region(currentLanguage, location)}",
+                            text = "+91 $farmerMobile\n${AppStrings.region(currentLanguage, location)}",
                             color = Color(0xFFE8F5E9),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
@@ -784,7 +785,6 @@ fun FarmerProfileContent(
             }
         }
 
-        // Floating Statistics Row
         Row(
             modifier = Modifier
                 .fillMaxWidth()
