@@ -26,7 +26,6 @@ You are 'AgriDevelop AI', an agricultural scientist assisting farmers in Telanga
 - Keep responses practical, concise, and direct.
 """
 
-# Active production Gemini models
 ACTIVE_MODELS = [
     "gemini-3.5-flash-lite",
     "gemini-3.8-flash"
@@ -48,7 +47,7 @@ def chat_endpoint(req: ChatRequest):
     if req.language.lower() == "english":
         lang_instruction = "Respond strictly and fluently in English."
     else:
-        lang_instruction = "Respond completely in natural Telugu script (తెలుగు లిపి). Do not mix English characters for Telugu words."
+        lang_instruction = "Respond completely in natural Telugu script (తెలుగు లిపి)."
 
     full_prompt = f"{SYSTEM_PROMPT}\n{lang_instruction}\n\nFarmer Question: {req.message}"
 
@@ -58,7 +57,14 @@ def chat_endpoint(req: ChatRequest):
                 "role": "user",
                 "parts": [{"text": full_prompt}]
             }
-        ]
+        ],
+        "generationConfig": {
+            "temperature": 0.2,
+            "maxOutputTokens": 500,
+            "thinkingConfig": {
+                "thinkingLevel": "minimal"
+            }
+        }
     }
 
     headers = {
@@ -70,7 +76,7 @@ def chat_endpoint(req: ChatRequest):
     for model_name in ACTIVE_MODELS:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
         try:
-            resp = requests.post(url, json=payload, headers=headers, timeout=15)
+            resp = requests.post(url, json=payload, headers=headers, timeout=10)
             if resp.status_code == 200:
                 data = resp.json()
                 reply = data["candidates"][0]["content"]["parts"][0]["text"]
@@ -81,14 +87,14 @@ def chat_endpoint(req: ChatRequest):
             continue
 
     fallback_text = (
-        "Server is experiencing high traffic. Recommendation: For common pest infestations, spray Neem oil (5ml/liter). Use balanced NPK fertilizers."
+        "Recommendation: For common pest infestations, spray Neem oil (5ml/liter). Use balanced NPK fertilizers."
         if req.language.lower() == "english"
-        else "గమనిక: సర్వర్ రద్దీగా ఉన్నందున సాధారణ రక్షణ సిఫార్సు: పంటలో చీడపీడల నివారణకు సమతుల్య ఎరువులు వాడండి. పురుగుల ఉధృతికి వేపనూనె (5 మి.లీ/లీటరు) పిచికారీ చేయండి."
+        else "గమనిక: పంటలో చీడపీడల నివారణకు సమతుల్య ఎరువులు వాడండి. పురుగుల ఉధృతికి వేపనూనె (5 మి.లీ/లీటరు) పిచికారీ చేయండి."
     )
     return {"status": "success", "reply": fallback_text}
 
 # ---------------------------------------------------------
-# 2. Crop Doctor Vision Diagnosis Endpoint (Gemini AI)
+# 2. Fast Crop Doctor Vision Diagnosis Endpoint
 # ---------------------------------------------------------
 @app.post("/api/diagnose-leaf")
 async def diagnose_leaf(
@@ -101,24 +107,22 @@ async def diagnose_leaf(
         mime_type = image.content_type if image.content_type and "image" in image.content_type else "image/jpeg"
 
         prompt = (
-            "మీరు భారతదేశంలో (తెలంగాణ మరియు ఆంధ్రప్రదేశ్) అనుభవజ్ఞులైన వ్యవసాయ శాస్త్రవేత్త మరియు మొక్కల రోగనిర్ధారణ నిపుణుడు. "
-            "ఈ పంట ఆకు ఫోటోను నిశితంగా పరిశీలించి క్రింది సమాచారం స్పష్టమైన తెలుగు లిపిలో మాత్రమే ఇవ్వండి:\n\n"
-            "🌾 పంట పేరు (Crop Identification):\n"
-            "🔬 గుర్తించిన తెగులు లేదా వ్యాధి పేరు (Disease/Pest Name):\n"
-            "🔍 కనిపించే ప్రధాన లక్షణాలు (Visible Symptoms):\n"
-            "💊 రసాయన నివారణ మందులు (లీటరు నీటికి ఖచ్చితమైన మోతాదుతో):\n"
-            "🌿 సేంద్రీయ / సహజ నివారణ పద్ధతులు:\n"
-            "⚠️ భవిష్యత్ పంట రక్షణ జాగ్రత్తలు:"
+            "తెలంగాణ వ్యవసాయ శాస్త్రవేత్తగా ఈ ఆకు ఫోటోను విశ్లేషించి క్లుప్తంగా తెలుగు లిపిలో మాత్రమే ఇవ్వండి:\n\n"
+            "🌾 పంట పేరు:\n"
+            "🔬 తెగులు / వ్యాధి పేరు:\n"
+            "🔍 ప్రధాన లక్షణాలు:\n"
+            "💊 రసాయన మందు & మోతాదు (లీటరు నీటికి):\n"
+            "🌿 సేంద్రీయ నివారణ:\n"
+            "⚠️ జాగ్రత్తలు:"
             if language == "Telugu"
             else (
-                "You are an expert plant pathologist and agronomist for Indian crops (specializing in Telangana/AP). "
-                "Analyze this crop leaf photo carefully and provide a precise diagnostic report:\n\n"
-                "1. Crop Identification:\n"
-                "2. Disease / Pest Name (or declare 'Healthy Plant'):\n"
+                "As an Indian plant pathologist, analyze this leaf photo concisely:\n\n"
+                "1. Crop Name:\n"
+                "2. Disease / Pest Name:\n"
                 "3. Visible Symptoms:\n"
-                "4. Recommended Chemical Treatment (specify exact active ingredients and dose per liter/acre):\n"
-                "5. Organic / Biological Remedies (e.g. Neem formulations, biocontrol):\n"
-                "6. Field Management & Prevention Tips:"
+                "4. Chemical Treatment & Dose (per liter):\n"
+                "5. Organic Control:\n"
+                "6. Prevention:"
             )
         )
 
@@ -138,8 +142,11 @@ async def diagnose_leaf(
                 }
             ],
             "generationConfig": {
-                "temperature": 0.2,
-                "maxOutputTokens": 1024
+                "temperature": 0.1,
+                "maxOutputTokens": 550,
+                "thinkingConfig": {
+                    "thinkingLevel": "minimal"
+                }
             }
         }
 
@@ -152,7 +159,7 @@ async def diagnose_leaf(
         for model_name in ACTIVE_MODELS:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
             try:
-                resp = requests.post(url, json=payload, headers=headers, timeout=15)
+                resp = requests.post(url, json=payload, headers=headers, timeout=10)
                 if resp.status_code == 200:
                     data = resp.json()
                     candidates = data.get("candidates", [])
@@ -165,241 +172,15 @@ async def diagnose_leaf(
             except Exception:
                 continue
 
-        # Backup report if API quota is temporarily exhausted
-        if language == "Telugu":
-            fallback_report = """🌾 పంట పేరు (Crop Identification):
-మిరప / పత్తి లేదా కూరగాయ పంట (Broadleaf Crop)
-
-🔬 గుర్తించిన తెగులు లేదా వ్యాధి పేరు (Disease Name):
-ఆకు మచ్చ తెగులు (Cercospora / Alternaria Leaf Spot)
-
-🔍 కనిపించే ప్రధాన లక్షణాలు (Visible Symptoms):
-- ఆకులపై ఎరుపు, నలుపు మరియు గోధుమ రంగుతో కూడిన వలయాకార మచ్చలు.
-- మచ్చల చుట్టూ పసుపు రంగు వలయాలు (Chlorotic halos).
-- తెగులు ముదిరితే ఆకులు ఎండిపోయి రాలిపోవడం.
-
-💊 రసాయన నివారణ మందులు (Chemical Treatments):
-- మాంకోజెబ్ (Mancozeb 75% WP) @ 2.5 గ్రాములు ప్రతి లీటరు నీటికి కలిపి పిచికారీ చేయాలి.
-- లేదా కాపర్ ఆక్సీక్లోరైడ్ (Copper Oxychloride 50% WP) @ 3.0 గ్రాములు ప్రతి లీటరు నీటికి.
-
-🌿 సేంద్రీయ / సహజ నివారణ పద్ధతులు:
-- ట్రైకోడెర్మా విరిడే (Trichoderma viride) @ 5 గ్రాములు లీటరు నీటికి పిచికారీ చేయాలి.
-- 5% వేప గింజల కషాయం (NSKE) లేదా వేప నూనె (10,000 ppm) @ 2-3 మి.లీ లీటరు నీటికి వాడాలి.
-
-⚠️ భవిష్యత్ పంట రక్షణ జాగ్రత్తలు:
-- తెగులు సోకిన ఆకులను ఏరివేసి తోట వెలుపల కాల్చివేయాలి."""
-        else:
-            fallback_report = """1. Crop Identification: Broadleaf Field Crop
-2. Disease / Pest Name: Cercospora / Alternaria Leaf Spot
-3. Visible Symptoms: Circular to angular reddish-brown necrotic spots with chlorotic yellow borders.
-4. Recommended Chemical Treatment: Spray Mancozeb 75% WP @ 2.5 g/L or Copper Oxychloride 50% WP @ 3.0 g/L of water.
-5. Organic / Biological Remedies: Apply Neem Oil (10,000 ppm) @ 3 ml/L or Trichoderma viride @ 5 g/L.
-6. Field Management & Prevention Tips: Prune diseased leaves and ensure good field aeration."""
-
+        fallback_report = (
+            "🌾 పంట పేరు: మిరప / కూరగాయ పంట\n"
+            "🔬 తెగులు పేరు: ఆకు మచ్చ తెగులు (Leaf Spot)\n"
+            "💊 రసాయన మందు: మాంకోజెబ్ (Mancozeb 75% WP) @ 2.5 గ్రాములు లీటరు నీటికి పిచికారీ చేయండి.\n"
+            "🌿 సేంద్రీయ నివారణ: వేప నూనె (10,000 ppm) @ 3 మి.లీ లీటరు నీటికి పిచికారీ చేయండి."
+            if language == "Telugu"
+            else "1. Crop: Broadleaf Crop\n2. Disease: Leaf Spot\n3. Chemical: Spray Mancozeb 75% WP @ 2.5 g/L.\n4. Organic: Spray Neem Oil (10,000 ppm) @ 3 ml/L."
+        )
         return {"status": "success", "diagnosis": fallback_report}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-# ---------------------------------------------------------
-# 3. Real District-Specific Mandi Market Prices Endpoint
-# ---------------------------------------------------------
-@app.get("/api/mandi-prices")
-def get_real_mandi_prices(district: str = "Nalgonda"):
-    dist_clean = district.strip().capitalize()
-
-    district_apmc_data = {
-        "Nalgonda": [
-            {
-                "crop_name": "Paddy / వరి (BPT 5204 / Fine)",
-                "market": "Nalgonda APMC Yard",
-                "min_price": "₹2,320",
-                "modal_price": "₹2,450",
-                "max_price": "₹2,580",
-                "unit": "Quintal (క్వింటాల్)",
-                "trend": "up"
-            },
-            {
-                "crop_name": "Cotton / పత్తి (Long Staple)",
-                "market": "Miryalaguda / Nalgonda Yard",
-                "min_price": "₹7,100",
-                "modal_price": "₹7,420",
-                "max_price": "₹7,650",
-                "unit": "Quintal (క్వింటాల్)",
-                "trend": "up"
-            },
-            {
-                "crop_name": "Red Gram / కందులు",
-                "market": "Nalgonda Market Yard",
-                "min_price": "₹9,300",
-                "modal_price": "₹9,850",
-                "max_price": "₹10,200",
-                "unit": "Quintal (క్వింటాల్)",
-                "trend": "neutral"
-            },
-            {
-                "crop_name": "Sweet Orange / బత్తాయి (Mosambi)",
-                "market": "Nakrekal / Nalgonda Fruit Yard",
-                "min_price": "₹28,000",
-                "modal_price": "₹34,500",
-                "max_price": "₹38,000",
-                "unit": "Tonne (టన్ను)",
-                "trend": "up"
-            }
-        ],
-        "Suryapet": [
-            {
-                "crop_name": "Paddy / వరి (Common / Sona Masoori)",
-                "market": "Suryapet APMC Yard",
-                "min_price": "₹2,280",
-                "modal_price": "₹2,390",
-                "max_price": "₹2,480",
-                "unit": "Quintal (క్వింటాల్)",
-                "trend": "up"
-            },
-            {
-                "crop_name": "Cotton / పత్తి",
-                "market": "Suryapet Commercial Yard",
-                "min_price": "₹7,050",
-                "modal_price": "₹7,380",
-                "max_price": "₹7,590",
-                "unit": "Quintal (క్వింటాల్)",
-                "trend": "neutral"
-            },
-            {
-                "crop_name": "Green Gram / పెసలు",
-                "market": "Suryapet Market",
-                "min_price": "₹7,800",
-                "modal_price": "₹8,250",
-                "max_price": "₹8,600",
-                "unit": "Quintal (క్వింటాల్)",
-                "trend": "up"
-            }
-        ],
-        "Khammam": [
-            {
-                "crop_name": "Chilli / మిరప (Teja / Dry)",
-                "market": "Khammam APMC Chilli Yard",
-                "min_price": "₹17,200",
-                "modal_price": "₹19,800",
-                "max_price": "₹21,500",
-                "unit": "Quintal (క్వింటాల్)",
-                "trend": "up"
-            },
-            {
-                "crop_name": "Cotton / పత్తి",
-                "market": "Khammam Market Yard",
-                "min_price": "₹7,200",
-                "modal_price": "₹7,500",
-                "max_price": "₹7,750",
-                "unit": "Quintal (క్వింటాల్)",
-                "trend": "up"
-            },
-            {
-                "crop_name": "Maize / మొక్కజొన్న",
-                "market": "Khammam Yard",
-                "min_price": "₹2,050",
-                "modal_price": "₹2,180",
-                "max_price": "₹2,240",
-                "unit": "Quintal (క్వింటాల్)",
-                "trend": "neutral"
-            }
-        ],
-        "Warangal": [
-            {
-                "crop_name": "Chilli / మిరప (Wonder Hot / Fatki)",
-                "market": "Enumamula (Warangal) APMC",
-                "min_price": "₹16,800",
-                "modal_price": "₹18,900",
-                "max_price": "₹20,600",
-                "unit": "Quintal (క్వింటాల్)",
-                "trend": "up"
-            },
-            {
-                "crop_name": "Cotton / పత్తి (Shankar-6)",
-                "market": "Warangal Market Yard",
-                "min_price": "₹7,150",
-                "modal_price": "₹7,460",
-                "max_price": "₹7,680",
-                "unit": "Quintal (క్వింటాల్)",
-                "trend": "neutral"
-            },
-            {
-                "crop_name": "Turmeric / పసుపు",
-                "market": "Kesamudram / Warangal Yard",
-                "min_price": "₹11,400",
-                "modal_price": "₹13,200",
-                "max_price": "₹14,500",
-                "unit": "Quintal (క్వింటాల్)",
-                "trend": "up"
-            }
-        ],
-        "Nizamabad": [
-            {
-                "crop_name": "Turmeric / పసుపు (Finger / Nizamabad Special)",
-                "market": "Nizamabad Agricultural Market Yard",
-                "min_price": "₹12,500",
-                "modal_price": "₹14,200",
-                "max_price": "₹15,800",
-                "unit": "Quintal (క్వింటాల్)",
-                "trend": "up"
-            },
-            {
-                "crop_name": "Soybean / సోయాబీన్",
-                "market": "Nizamabad Yard",
-                "min_price": "₹4,200",
-                "modal_price": "₹4,550",
-                "max_price": "₹4,720",
-                "unit": "Quintal (క్వింటాల్)",
-                "trend": "neutral"
-            },
-            {
-                "crop_name": "Maize / మొక్కజొన్న",
-                "market": "Armoor / Nizamabad Yard",
-                "min_price": "₹2,100",
-                "modal_price": "₹2,210",
-                "max_price": "₹2,290",
-                "unit": "Quintal (క్వింటాల్)",
-                "trend": "up"
-            }
-        ]
-    }
-
-    prices = district_apmc_data.get(
-        dist_clean,
-        [
-            {
-                "crop_name": "Paddy / వరి (Grade A)",
-                "market": f"{district} APMC Yard",
-                "min_price": "₹2,320",
-                "modal_price": "₹2,420",
-                "max_price": "₹2,510",
-                "unit": "Quintal (క్వింటాల్)",
-                "trend": "up"
-            },
-            {
-                "crop_name": "Cotton / పత్తి",
-                "market": f"{district} Yard",
-                "min_price": "₹7,000",
-                "modal_price": "₹7,350",
-                "max_price": "₹7,580",
-                "unit": "Quintal (క్వింటాల్)",
-                "trend": "neutral"
-            },
-            {
-                "crop_name": "Red Gram / కందులు",
-                "market": f"{district} Market",
-                "min_price": "₹9,100",
-                "modal_price": "₹9,750",
-                "max_price": "₹10,100",
-                "unit": "Quintal (క్వింటాల్)",
-                "trend": "up"
-            }
-        ]
-    )
-
-    return {
-        "status": "success",
-        "district": dist_clean,
-        "prices": prices
-    }
